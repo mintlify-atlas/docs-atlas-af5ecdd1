@@ -1,0 +1,105 @@
+{
+  "projectType": "saas",
+  "projectName": "Casa de Historias",
+  "projectDescription": "A bilingual Android app for preserving and sharing indigenous legends from the Sierra de Zongolica in Spanish and Nahuatl",
+  "theme": "almond",
+  "primaryColor": "#06B6D4",
+  "lightColor": "#0891B2",
+  "darkColor": "#0F172A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/story-management",
+              "features/bilingual-content",
+              "features/audio-narration",
+              "features/geolocation",
+              "features/user-authentication"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/discovering-stories",
+              "guides/contributing-stories",
+              "guides/favorites-offline",
+              "guides/map-exploration",
+              "guides/nahuatl-dictionary"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture-overview",
+              "development/data-layer",
+              "development/ui-layer",
+              "development/dependency-injection"
+            ]
+          },
+          {
+            "group": "Technical Reference",
+            "pages": [
+              "reference/story-model",
+              "reference/firebase-integration",
+              "reference/room-database",
+              "reference/navigation",
+              "reference/compose-ui"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/setup",
+              "contributing/guidelines",
+              "contributing/testing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Bilingual content in Spanish and Nahuatl",
+    "Audio narration for oral storytelling tradition",
+    "Geolocation and interactive map of stories",
+    "User authentication and story contributions",
+    "Favorites and offline access with Room database",
+    "Nahuatl-Spanish dictionary",
+    "Firebase backend for real-time sync",
+    "Material Design 3 with custom theme"
+  ],
+  "publicApiSurface": [
+    "StoryRepository.getAllStories()",
+    "StoryRepository.getStoryById(id)",
+    "StoryRepository.searchStories(query)",
+    "StoryRepository.addStory(story)",
+    "StoryRepository.addToFavorites(storyId)",
+    "AuthRepository.signIn(email, password)",
+    "AuthRepository.signUp(email, password)",
+    "FirestoreRepository.getAllStoriesFlow()",
+    "StoryDao.getAllStories()",
+    "StoryDao.getFavoriteStories()",
+    "Screen.Discover.route",
+    "Screen.StoryList.route",
+    "Screen.StoryMap.route",
+    "Screen.AddStory.route",
+    "NavGraph composable"
+  ]
+}
