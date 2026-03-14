@@ -1,0 +1,504 @@
+---
+title: Dependency Injection
+description: Hilt setup, modules, and dependency provision throughout the app
+icon: plug
+---
+
+Casa de Historias uses Hilt (built on Dagger) for dependency injection, providing a standardized way to incorporate DI into Android applications.
+
+## Why Hilt?
+
+<CardGroup cols={2}>
+  <Card title="Reduced Boilerplate" icon="code">
+    Hilt generates all the necessary Dagger boilerplate code
+  </Card>
+  <Card title="Android Integration" icon="android">
+    Built-in support for Android components (Activities, ViewModels)
+  </Card>
+  <Card title="Scoping" icon="layer-group">
+    Automatic lifecycle scoping for dependencies
+  </Card>
+  <Card title="Testing Support" icon="flask">
+    Easy to swap implementations for testing
+  </Card>
+</CardGroup>
+
+## Application Setup
+
+### @HiltAndroidApp
+
+The application class must be annotated to enable Hilt:
+
+```kotlin
+package com.example.casadehistorias
+
+import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
+
+@HiltAndroidApp
+class CasaDeHistoriasApp : Application()
+```
+
+<Info>
+`@HiltAndroidApp` triggers Hilt's code generation and creates the application-level dependency container.
+</Info>
+
+### AndroidManifest.xml
+
+The application class must be registered in the manifest:
+
+```xml
+<application
+    android:name=".CasaDeHistoriasApp"
+    android:allowBackup="true"
+    ...
+>
+```
+
+## Android Component Injection
+
+### Activity Injection
+
+```kotlin
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            CasaDeHistoriasTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    MainContainer()
+                }
+            }
+        }
+    }
+}
+```
+
+<Note>
+`@AndroidEntryPoint` makes the activity eligible to receive injected dependencies and enables injection in fragments and views.
+</Note>
+
+### ViewModel Injection
+
+ViewModels use `@HiltViewModel` for automatic injection:
+
+```kotlin
+@HiltViewModel
+class StoryViewModel @Inject constructor(
+    private val repository: StoryRepository
+) : ViewModel() {
+    // ViewModel implementation
+}
+```
+
+In Compose, retrieve the ViewModel with:
+
+```kotlin
+@Composable
+fun StoryListScreen(
+    viewModel: StoryViewModel = hiltViewModel()
+) {
+    // Screen implementation
+}
+```
+
+<Tip>
+`hiltViewModel()` automatically provides the ViewModel with all its dependencies injected, scoped to the navigation entry.
+</Tip>
+
+## Hilt Modules
+
+Modules tell Hilt how to provide specific types.
+
+### DatabaseModule
+
+Provides Room database and DAOs:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "casa_historias_db"
+        ).build()
+    }
+
+    @Provides
+    fun provideStoryDao(database: AppDatabase): StoryDao {
+        return database.storyDao()
+    }
+}
+```
+
+<Steps>
+  <Step title="@Module Annotation">
+    Marks the class as a Hilt module
+  </Step>
+  <Step title="@InstallIn">
+    Specifies which component the module is installed in (SingletonComponent = app lifetime)
+  </Step>
+  <Step title="@Provides">
+    Indicates a method that provides a dependency
+  </Step>
+  <Step title="@Singleton">
+    Ensures only one instance exists throughout the app
+  </Step>
+</Steps>
+
+### FirebaseModule
+
+Provides Firebase services:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object FirebaseModule {
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+}
+```
+
+<Warning>
+Firebase instances are inherently singletons, but marking them `@Singleton` in Hilt ensures the same instance is always injected.
+</Warning>
+
+## Constructor Injection
+
+The preferred way to inject dependencies is through constructor injection.
+
+### Repository Example
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    // Repository implementation
+}
+```
+
+### FirestoreRepository Example
+
+```kotlin
+@Singleton
+class FirestoreRepository @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
+    // Firestore operations
+}
+```
+
+### AuthRepository Example
+
+```kotlin
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) {
+    // Authentication operations
+}
+```
+
+<Info>
+When using constructor injection with `@Inject`, no module is needed - Hilt knows how to create the class automatically.
+</Info>
+
+## Scoping
+
+Hilt provides several component scopes:
+
+| Scope | Lifetime | Use Case |
+|-------|----------|----------|
+| `@Singleton` | Application lifetime | Repositories, Firebase, Database |
+| `@ActivityScoped` | Activity lifetime | Activity-specific dependencies |
+| `@ViewModelScoped` | ViewModel lifetime | ViewModel-specific dependencies |
+| `@ActivityRetainedScoped` | Across config changes | Survives rotation |
+
+### Singleton Example
+
+```kotlin
+@Singleton
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val authRepository: AuthRepository
+) {
+    // Single instance shared across the entire app
+}
+```
+
+<Note>
+Repositories are typically singletons because they manage app-wide data and maintain caches.
+</Note>
+
+## Dependency Graph
+
+Here's how dependencies flow through the app:
+
+```mermaid
+graph TD
+    A[@HiltAndroidApp] --> B[SingletonComponent]
+    B --> C[FirebaseModule]
+    B --> D[DatabaseModule]
+    C --> E[FirebaseAuth]
+    C --> F[FirebaseFirestore]
+    C --> G[FirebaseStorage]
+    D --> H[AppDatabase]
+    H --> I[StoryDao]
+    E --> J[AuthRepository]
+    F --> J
+    F --> K[FirestoreRepository]
+    G --> L[StorageRepository]
+    J --> M[StoryRepository]
+    K --> M
+    M --> N[StoryViewModel]
+    J --> O[AuthViewModel]
+    N --> P[@Composable Screen]
+    O --> P
+```
+
+## Testing with Hilt
+
+### Test Application
+
+For testing, create a custom test application:
+
+```kotlin
+@HiltAndroidApp
+class TestCasaDeHistoriasApp : Application()
+```
+
+### Test Modules
+
+Replace production modules with test implementations:
+
+```kotlin
+@Module
+@TestInstallIn(
+    components = [SingletonComponent::class],
+    replaces = [FirebaseModule::class]
+)
+object FakeFirebaseModule {
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth {
+        // Return mock or fake implementation
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        // Return mock or fake implementation
+    }
+}
+```
+
+<Tip>
+`@TestInstallIn` with `replaces` parameter allows you to swap production modules with test doubles.
+</Tip>
+
+## Qualifiers
+
+Use qualifiers when you need multiple instances of the same type:
+
+```kotlin
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AuthInterceptor
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class LoggingInterceptor
+
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule {
+
+    @Provides
+    @AuthInterceptor
+    fun provideAuthInterceptor(): Interceptor {
+        return AuthInterceptor()
+    }
+
+    @Provides
+    @LoggingInterceptor
+    fun provideLoggingInterceptor(): Interceptor {
+        return HttpLoggingInterceptor()
+    }
+}
+```
+
+## Entry Points
+
+Access Hilt dependencies from non-Android classes:
+
+```kotlin
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface WorkerEntryPoint {
+    fun storyRepository(): StoryRepository
+}
+
+class SyncWorker(
+    context: Context,
+    params: WorkerParameters
+) : Worker(context, params) {
+
+    override fun doWork(): Result {
+        val entryPoint = EntryPointAccessors.fromApplication(
+            applicationContext,
+            WorkerEntryPoint::class.java
+        )
+        val repository = entryPoint.storyRepository()
+        // Use repository
+        return Result.success()
+    }
+}
+```
+
+<Warning>
+Entry points should only be used when constructor injection is not possible (e.g., Workers, Services).
+</Warning>
+
+## Common Patterns
+
+### Interface Binding
+
+When you want to inject an interface:
+
+```kotlin
+interface StoryDataSource {
+    suspend fun getStories(): List<Story>
+}
+
+class FirestoreStoryDataSource @Inject constructor(
+    private val firestore: FirebaseFirestore
+) : StoryDataSource {
+    override suspend fun getStories(): List<Story> {
+        // Implementation
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DataSourceModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindStoryDataSource(
+        impl: FirestoreStoryDataSource
+    ): StoryDataSource
+}
+```
+
+<Info>
+Use `@Binds` instead of `@Provides` when you just need to map an interface to an implementation - it's more efficient.
+</Info>
+
+### Multi-binding
+
+Provide a set or map of dependencies:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ValidationModule {
+
+    @Binds
+    @IntoSet
+    abstract fun bindEmailValidator(impl: EmailValidator): Validator
+
+    @Binds
+    @IntoSet
+    abstract fun bindPasswordValidator(impl: PasswordValidator): Validator
+}
+
+class FormValidator @Inject constructor(
+    private val validators: Set<@JvmSuppressWildcards Validator>
+) {
+    // Use all validators
+}
+```
+
+## Build Configuration
+
+From `app/build.gradle.kts:1-7`:
+
+```kotlin
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.google.services)
+}
+```
+
+Dependencies from `app/build.gradle.kts:82-85`:
+
+```kotlin
+// Hilt
+implementation(libs.hilt.android)
+ksp(libs.hilt.compiler)
+implementation(libs.hilt.navigation.compose)
+```
+
+<Note>
+Hilt uses KSP (Kotlin Symbol Processing) instead of kapt for faster build times.
+</Note>
+
+## Best Practices
+
+<Steps>
+  <Step title="Prefer Constructor Injection">
+    Use `@Inject` on constructors whenever possible
+  </Step>
+  <Step title="Use @Singleton Wisely">
+    Only use @Singleton for truly app-wide dependencies
+  </Step>
+  <Step title="Keep Modules Focused">
+    Each module should have a single responsibility (Firebase, Database, etc.)
+  </Step>
+  <Step title="Avoid Field Injection">
+    Constructor injection is more testable and explicit
+  </Step>
+  <Step title="Document Complex Dependencies">
+    Add comments explaining why certain scopes or qualifiers are used
+  </Step>
+</Steps>
+
+## Related Documentation
+
+<CardGroup cols={3}>
+  <Card title="Architecture Overview" icon="sitemap" href="/development/architecture-overview">
+    See how DI fits into overall architecture
+  </Card>
+  <Card title="Data Layer" icon="database" href="/development/data-layer">
+    Understand repository injection
+  </Card>
+  <Card title="UI Layer" icon="mobile" href="/development/ui-layer">
+    Learn about ViewModel injection
+  </Card>
+</CardGroup>

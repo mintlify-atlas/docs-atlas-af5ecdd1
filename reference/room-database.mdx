@@ -1,0 +1,257 @@
+---
+title: 'Room Database'
+description: 'Local offline storage with Room for Casa de Historias'
+icon: 'database'
+---
+
+## Overview
+
+Casa de Historias uses Room to provide offline-first access to indigenous legends. Stories downloaded from Firebase are cached locally, allowing users to read legends without an internet connection.
+
+## Database Setup
+
+### AppDatabase Configuration
+
+```kotlin data/local/AppDatabase.kt
+@Database(
+    entities = [StoryEntity::class], 
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun storyDao(): StoryDao
+}
+```
+
+<ParamField path="entities" type="Array<KClass<*>>">
+  List of entity classes that define database tables. Currently includes `StoryEntity` for story caching.
+</ParamField>
+
+<ParamField path="version" type="Int">
+  Database schema version. Increment this when making schema changes and provide a migration strategy.
+</ParamField>
+
+<ParamField path="exportSchema" type="Boolean">
+  Whether to export the database schema to a JSON file. Set to `false` for simplicity in development.
+</ParamField>
+
+## StoryEntity Schema
+
+The `StoryEntity` represents a locally cached story with file paths for offline media access.
+
+```kotlin data/local/entities/StoryEntity.kt
+@Entity(tableName = "stories")
+data class StoryEntity(
+    @PrimaryKey val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioPath: String?,      // Local file path to audio
+    val imagePath: String?,      // Local file path to image
+    val narratorName: String,
+    val community: String,
+    val isFavorite: Boolean = false
+)
+```
+
+### Key Differences from Domain Model
+
+<Info>
+  **StoryEntity vs Story**:
+  - `audioPath` and `imagePath` store local file paths instead of URLs
+  - `isFavorite` tracks user preference locally
+  - Geographic coordinates and metadata are omitted to minimize storage
+  - No timestamp fields as these are primarily for cloud sync
+</Info>
+
+## Data Access Object (DAO)
+
+The `StoryDao` interface defines all database operations with Flow-based reactive queries.
+
+```kotlin data/local/dao/StoryDao.kt
+@Dao
+interface StoryDao {
+    @Query("SELECT * FROM stories")
+    fun getAllStories(): Flow<List<StoryEntity>>
+
+    @Query("SELECT * FROM stories WHERE id = :id")
+    suspend fun getStoryById(id: String): StoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStories(stories: List<StoryEntity>)
+
+    @Delete
+    suspend fun deleteStory(story: StoryEntity)
+}
+```
+
+### Method Documentation
+
+<ResponseField name="getAllStories" type="Flow<List<StoryEntity>>">
+  Returns a reactive Flow of all cached stories. The Flow emits new values whenever stories are added, updated, or deleted in the database.
+  
+  **Use case**: Display all offline-available stories in a list or grid.
+</ResponseField>
+
+<ResponseField name="getStoryById" type="suspend fun(String): StoryEntity?">
+  Retrieves a single story by ID. Returns `null` if the story is not cached locally.
+  
+  **Parameters**:
+  - `id`: Story unique identifier
+  
+  **Use case**: Fetch a specific story for detail view when offline.
+</ResponseField>
+
+<ResponseField name="insertStories" type="suspend fun(List<StoryEntity>)">
+  Inserts or updates multiple stories in the database. Uses `REPLACE` strategy to overwrite existing entries.
+  
+  **Parameters**:
+  - `stories`: List of stories to cache
+  
+  **Use case**: Sync stories downloaded from Firebase to local storage.
+</ResponseField>
+
+<ResponseField name="deleteStory" type="suspend fun(StoryEntity)">
+  Removes a story from the local cache.
+  
+  **Parameters**:
+  - `story`: Story entity to delete
+  
+  **Use case**: Clear cache or remove downloaded stories.
+</ResponseField>
+
+## Reactive Queries with Flow
+
+Room's `Flow` support enables automatic UI updates when data changes:
+
+```kotlin
+class StoryRepository @Inject constructor(
+    private val storyDao: StoryDao
+) {
+    // Automatically emits updates when stories change
+    val cachedStories: Flow<List<StoryEntity>> = storyDao.getAllStories()
+}
+
+// In ViewModel
+val stories: StateFlow<List<Story>> = storyDao.getAllStories()
+    .map { entities -> entities.map { it.toDomainModel() } }
+    .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+// In Composable
+val stories by viewModel.stories.collectAsState()
+LazyColumn {
+    items(stories) { story ->
+        StoryCard(story = story)
+    }
+}
+```
+
+<Note>
+  Flow-based queries are observed continuously. When you call `insertStories()` or `deleteStory()`, any collectors of `getAllStories()` automatically receive the updated list.
+</Note>
+
+## Offline-First Pattern
+
+Casa de Historias implements an offline-first architecture:
+
+1. **On App Launch**: Load stories from Room database immediately
+2. **Background Sync**: Fetch latest stories from Firebase
+3. **Update Cache**: Insert new/updated stories into Room
+4. **Automatic UI Update**: Flow emits new data to UI
+
+```kotlin
+class StoryRepository @Inject constructor(
+    private val firestoreRepository: FirestoreRepository,
+    private val storyDao: StoryDao
+) {
+    fun getStories(): Flow<List<Story>> = flow {
+        // Emit cached stories immediately
+        storyDao.getAllStories().collect { cached ->
+            emit(cached.map { it.toDomainModel() })
+        }
+    }
+
+    suspend fun syncStories() {
+        // Fetch from Firebase and update cache
+        val remoteStories = firestoreRepository.getAllStories()
+        val entities = remoteStories.map { it.toEntity() }
+        storyDao.insertStories(entities)
+    }
+}
+```
+
+## Dependency Injection
+
+Room database is provided via Hilt:
+
+```kotlin di/DatabaseModule.kt
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "casa_historias_db"
+        ).build()
+    }
+
+    @Provides
+    fun provideStoryDao(database: AppDatabase): StoryDao {
+        return database.storyDao()
+    }
+}
+```
+
+## Best Practices
+
+<Warning>
+  **Never perform database operations on the main thread**. All DAO methods marked with `suspend` must be called from a coroutine scope. Flow-based queries handle threading automatically.
+</Warning>
+
+### Migration Strategy
+
+When updating the database schema:
+
+```kotlin
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            "ALTER TABLE stories ADD COLUMN viewCount INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}
+
+Room.databaseBuilder(context, AppDatabase::class.java, "casa_historias_db")
+    .addMigrations(MIGRATION_1_2)
+    .build()
+```
+
+### Cache Management
+
+Consider implementing cache expiration:
+
+```kotlin
+@Entity(tableName = "stories")
+data class StoryEntity(
+    // ... existing fields
+    val cachedAt: Long = System.currentTimeMillis()
+)
+
+@Query("DELETE FROM stories WHERE cachedAt < :expirationTime")
+suspend fun deleteExpiredStories(expirationTime: Long)
+```
+
+## Performance Tips
+
+- Use `@Transaction` for complex multi-table operations
+- Create indexes on frequently queried columns: `@Index(value = ["community"])`
+- Batch inserts using `insertStories()` instead of inserting one by one
+- Use `@Relation` for one-to-many relationships if you expand the schema

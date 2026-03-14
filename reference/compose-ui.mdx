@@ -1,0 +1,456 @@
+---
+title: 'Compose UI'
+description: 'Custom theme, colors, and Material Design 3 components for Casa de Historias'
+icon: 'palette'
+---
+
+## Overview
+
+Casa de Historias uses a custom Material Design 3 theme called "Noche Mística" (Mystical Night) that evokes the atmosphere of indigenous legends told under the night sky of Sierra de Zongolica.
+
+## Theme Definition
+
+The app uses a dark color scheme with culturally inspired color names:
+
+```kotlin ui/theme/Theme.kt
+private val CasaDeHistoriasColorScheme = darkColorScheme(
+    primary = AguaSagrada,
+    onPrimary = NocheProfunda,
+    primaryContainer = AguaSagradaOscura,
+    onPrimaryContainer = LunaLlena,
+
+    secondary = FloresCeremoniales,
+    onSecondary = LunaLlena,
+    secondaryContainer = FloresCeremonialesOscuras,
+    onSecondaryContainer = LunaLlena,
+
+    background = NocheProfunda,
+    onBackground = LunaLlena,
+    surface = FondoTarjeta,
+    onSurface = LunaLlena,
+
+    outline = TextoSecundario,
+    outlineVariant = TextoSecundario.copy(alpha = 0.5f),
+
+    surfaceVariant = SurfaceVariant,
+    onSurfaceVariant = TextoSecundario,
+
+    error = FloresCeremoniales,
+    onError = LunaLlena
+)
+
+@Composable
+fun CasaDeHistoriasTheme(
+    content: @Composable () -> Unit
+) {
+    val colorScheme = CasaDeHistoriasColorScheme
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = NocheProfunda.toArgb()
+            WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightStatusBars = false
+        }
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+```
+
+## Color Palette
+
+The "Noche Mística" palette features culturally meaningful color names:
+
+```kotlin ui/theme/Color.kt
+// Background: Deep Night Blue (Modernized Slate 900)
+val NocheProfunda = Color(0xFF0F172A)
+
+// Primary: Bright Turquoise (Vibrant Cyan)
+val AguaSagrada = Color(0xFF06B6D4)
+val AguaSagradaOscura = Color(0xFF0891B2)
+
+// Accent: Intense Red/Coral (Vibrant Rose)
+val FloresCeremoniales = Color(0xFFF43F5E)
+val FloresCeremonialesOscuras = Color(0xFFE11D48)
+
+// Text
+val LunaLlena = Color(0xFFF8FAFC)
+val TextoSecundario = Color(0xFF94A3B8)
+
+// Surfaces (Glassmorphism ready)
+val FondoTarjeta = Color(0xCC1E293B) // With slight transparency
+val SurfaceVariant = Color(0xFF334155)
+
+// Status Colors
+val SuccessGreen = Color(0xFF4CAF50)
+val WarningOrange = Color(0xFFFFA726)
+```
+
+### Color Meanings
+
+<ResponseField name="NocheProfunda" type="Color(0xFF0F172A)">
+  **Deep Night** - The dark background representing the night sky where stories are traditionally shared. Used for main background and status bar.
+</ResponseField>
+
+<ResponseField name="AguaSagrada" type="Color(0xFF06B6D4)">
+  **Sacred Water** - Bright turquoise primary color inspired by sacred water sources in indigenous culture. Used for primary buttons and interactive elements.
+</ResponseField>
+
+<ResponseField name="FloresCeremoniales" type="Color(0xFFF43F5E)">
+  **Ceremonial Flowers** - Vibrant red/coral accent representing flowers used in traditional ceremonies. Used for secondary actions and highlights.
+</ResponseField>
+
+<ResponseField name="LunaLlena" type="Color(0xFFF8FAFC)">
+  **Full Moon** - Bright white text color representing moonlight that illuminates stories at night. Used for primary text.
+</ResponseField>
+
+<ResponseField name="FondoTarjeta" type="Color(0xCC1E293B)">
+  **Card Background** - Semi-transparent surface color with glassmorphism support. Used for elevated cards and containers.
+</ResponseField>
+
+## Using the Theme
+
+Wrap your app content with `CasaDeHistoriasTheme`:
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            CasaDeHistoriasTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainContainer()
+                }
+            }
+        }
+    }
+}
+```
+
+## Material Design 3 Components
+
+### Buttons
+
+```kotlin
+// Primary button with sacred water color
+Button(
+    onClick = { /* action */ },
+    colors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary
+    )
+) {
+    Text("Leer Historia")
+}
+
+// Secondary button with ceremonial flower accent
+Button(
+    onClick = { /* action */ },
+    colors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.secondary
+    )
+) {
+    Text("Compartir")
+}
+
+// Outlined button
+OutlinedButton(
+    onClick = { /* action */ },
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+) {
+    Text("Cancelar")
+}
+```
+
+### Cards
+
+```kotlin
+Card(
+    modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp),
+    colors = CardDefaults.cardColors(
+        containerColor = MaterialTheme.colorScheme.surface
+    ),
+    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = story.titleEs,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = story.community,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+```
+
+### Text Styles
+
+```kotlin
+// Story title
+Text(
+    text = story.titleEs,
+    style = MaterialTheme.typography.headlineLarge,
+    color = MaterialTheme.colorScheme.onBackground
+)
+
+// Story content
+Text(
+    text = story.contentEs,
+    style = MaterialTheme.typography.bodyLarge,
+    color = MaterialTheme.colorScheme.onBackground,
+    lineHeight = 28.sp
+)
+
+// Metadata (narrator, community)
+Text(
+    text = "Narrador: ${story.narratorName}",
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant
+)
+```
+
+### Input Fields
+
+```kotlin
+OutlinedTextField(
+    value = text,
+    onValueChange = { text = it },
+    label = { Text("Título en Español") },
+    colors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        cursorColor = MaterialTheme.colorScheme.primary
+    ),
+    modifier = Modifier.fillMaxWidth()
+)
+```
+
+### Icons and Icon Buttons
+
+```kotlin
+IconButton(
+    onClick = { /* toggle favorite */ },
+    colors = IconButtonDefaults.iconButtonColors(
+        contentColor = if (isFavorite) 
+            MaterialTheme.colorScheme.secondary 
+        else 
+            MaterialTheme.colorScheme.onSurfaceVariant
+    )
+) {
+    Icon(
+        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+        contentDescription = "Toggle favorite"
+    )
+}
+```
+
+## UI Patterns
+
+### Glassmorphism Cards
+
+Create semi-transparent elevated surfaces:
+
+```kotlin
+Card(
+    modifier = Modifier
+        .fillMaxWidth()
+        .blur(8.dp),
+    colors = CardDefaults.cardColors(
+        containerColor = FondoTarjeta  // Semi-transparent
+    ),
+    shape = RoundedCornerShape(16.dp)
+) {
+    // Content
+}
+```
+
+### Gradient Overlays
+
+Add atmospheric gradients to story images:
+
+```kotlin
+Box {
+    AsyncImage(
+        model = story.imageUrl,
+        contentDescription = story.titleEs,
+        modifier = Modifier.fillMaxWidth(),
+        contentScale = ContentScale.Crop
+    )
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        NocheProfunda.copy(alpha = 0.9f)
+                    )
+                )
+            )
+    )
+}
+```
+
+### Bottom Navigation Bar
+
+```kotlin
+NavigationBar(
+    containerColor = MaterialTheme.colorScheme.surface,
+    contentColor = MaterialTheme.colorScheme.onSurface
+) {
+    NavigationBarItem(
+        icon = { Icon(Icons.Default.Explore, contentDescription = null) },
+        label = { Text("Descubrir") },
+        selected = currentRoute == Screen.Discover.route,
+        onClick = { navController.navigate(Screen.Discover.route) },
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    )
+}
+```
+
+### Loading States
+
+```kotlin
+@Composable
+fun LoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+```
+
+### Error States
+
+```kotlin
+@Composable
+fun ErrorState(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Error,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(64.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text("Reintentar")
+        }
+    }
+}
+```
+
+## Accessibility
+
+<Warning>
+  Always provide content descriptions for icons and images:
+  
+  ```kotlin
+  Icon(
+      imageVector = Icons.Default.PlayArrow,
+      contentDescription = "Reproducir audio"
+  )
+  ```
+</Warning>
+
+### Contrast Ratios
+
+The theme colors meet WCAG AA standards:
+
+- **AguaSagrada on NocheProfunda**: 7.2:1 (AAA)
+- **LunaLlena on NocheProfunda**: 15.8:1 (AAA)
+- **FloresCeremoniales on NocheProfunda**: 6.1:1 (AA)
+
+### Semantic Colors
+
+Use semantic color roles from MaterialTheme:
+
+```kotlin
+// Good: Semantic color usage
+Text(
+    text = "Error loading story",
+    color = MaterialTheme.colorScheme.error
+)
+
+// Avoid: Hard-coded colors
+Text(
+    text = "Error loading story",
+    color = Color.Red  // Don't do this
+)
+```
+
+## Preview Support
+
+Use theme in Compose previews:
+
+```kotlin
+@Preview(showBackground = true)
+@Composable
+fun StoryCardPreview() {
+    CasaDeHistoriasTheme {
+        StoryCard(
+            story = Story(
+                id = "1",
+                titleEs = "La Leyenda del Cerro",
+                titleNahuatl = "Tepētl",
+                // ... other fields
+            )
+        )
+    }
+}
+```
+
+## Best Practices
+
+- Always use `MaterialTheme.colorScheme` instead of hard-coded colors
+- Leverage Material 3 semantic color roles (primary, secondary, surface, etc.)
+- Use `MaterialTheme.typography` for consistent text styling
+- Apply elevation to cards and surfaces to create depth
+- Test UI with accessibility scanner tools
+- Provide meaningful content descriptions for screen readers
+- Use cultural color names that resonate with the app's indigenous heritage

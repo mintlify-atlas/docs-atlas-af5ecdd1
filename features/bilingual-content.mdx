@@ -1,0 +1,309 @@
+---
+title: Bilingual Content
+description: How Casa de Historias preserves indigenous legends in both Spanish and Nahuatl
+icon: language
+---
+
+Casa de Historias is fundamentally designed as a bilingual application, preserving indigenous legends in both Spanish and Nahuatl. This dual-language approach ensures that cultural knowledge is maintained in its original form while remaining accessible to broader audiences.
+
+## The Story Data Model
+
+Every story in the system contains parallel fields for both languages:
+
+```kotlin Story.kt:3
+data class Story(
+    val id: String,
+    val titleEs: String,           // Spanish title
+    val titleNahuatl: String,       // Nahuatl title
+    val contentEs: String,          // Spanish content
+    val contentNahuatl: String,     // Nahuatl content
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+<Info>
+The bilingual structure is built directly into the data model, treating both languages as first-class citizens rather than relegating one to a translation layer.
+</Info>
+
+## Cultural Importance
+
+The bilingual approach serves multiple critical purposes:
+
+<CardGroup cols={2}>
+  <Card title="Language Preservation" icon="landmark">
+    Nahuatl is an endangered indigenous language. By storing stories in their original language, the app helps preserve linguistic heritage for future generations.
+  </Card>
+  <Card title="Cultural Authenticity" icon="certificate">
+    Stories told in Nahuatl retain nuances, idioms, and cultural concepts that may be lost in translation. The original language preserves the narrator's authentic voice.
+  </Card>
+  <Card title="Educational Value" icon="graduation-cap">
+    Bilingual presentation allows Nahuatl learners to study the language in context, comparing translations and understanding how concepts are expressed.
+  </Card>
+  <Card title="Community Accessibility" icon="users">
+    Spanish translations ensure that younger generations who may not speak Nahuatl fluently can still connect with their cultural heritage.
+  </Card>
+</CardGroup>
+
+## Content Entry Interface
+
+The story creation form clearly separates Spanish and Nahuatl inputs:
+
+### Title Fields
+
+```kotlin AddStoryScreen.kt:157
+CustomOutlinedTextField(
+    value = titleEs,
+    onValueChange = { titleEs = it; titleError = false },
+    label = "Título en Español *",
+    icon = Icons.Outlined.Edit,
+    isError = titleError
+)
+CustomOutlinedTextField(
+    value = titleNahuatl,
+    onValueChange = { titleNahuatl = it },
+    label = "Título en Náhuatl",
+    icon = Icons.Outlined.Edit
+)
+```
+
+<Note>
+Spanish titles are required (*) while Nahuatl titles are optional, acknowledging that not all contributors may be fluent in Nahuatl. However, the system encourages bilingual submissions whenever possible.
+</Note>
+
+### Content Fields
+
+Story content uses larger text areas to accommodate full narratives:
+
+```kotlin AddStoryScreen.kt:249
+CustomOutlinedTextField(
+    value = contentEs,
+    onValueChange = { contentEs = it; contentError = false },
+    label = "Historia en Español *",
+    icon = Icons.Outlined.Description,
+    modifier = Modifier.heightIn(min = 120.dp),
+    singleLine = false,
+    isError = contentError
+)
+CustomOutlinedTextField(
+    value = contentNahuatl,
+    onValueChange = { contentNahuatl = it },
+    label = "Historia en Náhuatl (Opcional)",
+    icon = Icons.Outlined.Description,
+    modifier = Modifier.heightIn(min = 120.dp),
+    singleLine = false
+)
+```
+
+## Display in Story Detail View
+
+When viewing a story, both languages are presented with visual distinction:
+
+<Steps>
+  <Step title="Spanish Title (Primary)">
+    The Spanish title is displayed prominently in the main header:
+
+    ```kotlin StoryDetailScreen.kt:133
+    Text(
+        text = story.titleEs,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        color = LunaLlena,
+        fontSize = 28.sp,
+        lineHeight = 34.sp
+    )
+    ```
+  </Step>
+
+  <Step title="Nahuatl Title (Secondary)">
+    The Nahuatl title follows in italics with the accent color:
+
+    ```kotlin StoryDetailScreen.kt:141
+    Text(
+        text = story.titleNahuatl,
+        style = MaterialTheme.typography.titleLarge,
+        fontStyle = FontStyle.Italic,
+        color = AguaSagrada,
+        fontSize = 20.sp
+    )
+    ```
+  </Step>
+
+  <Step title="Spanish Content">
+    The main story text is displayed in Spanish:
+
+    ```kotlin StoryDetailScreen.kt:238
+    Text(
+        text = story.contentEs,
+        style = MaterialTheme.typography.bodyLarge,
+        color = LunaLlena,
+        fontSize = 16.sp,
+        lineHeight = 26.sp
+    )
+    ```
+  </Step>
+
+  <Step title="Nahuatl Content (Conditional)">
+    If available, Nahuatl content is shown after a divider:
+
+    ```kotlin StoryDetailScreen.kt:246
+    if (story.contentNahuatl.isNotEmpty()) {
+        HorizontalDivider(
+            color = AguaSagrada.copy(alpha = 0.2f),
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+
+        Text(
+            text = "En Náhuatl",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = AguaSagrada,
+            fontSize = 18.sp
+        )
+
+        Text(
+            text = story.contentNahuatl,
+            style = MaterialTheme.typography.bodyLarge,
+            fontStyle = FontStyle.Italic,
+            color = LunaLlena.copy(alpha = 0.9f),
+            fontSize = 16.sp,
+            lineHeight = 26.sp
+        )
+    }
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+The italic styling and distinct color (AguaSagrada) for Nahuatl text helps users quickly identify the language while reading.
+</Tip>
+
+## Data Transformation
+
+When converting between Firebase and domain models, all bilingual fields are preserved:
+
+```kotlin StoryRepository.kt:88
+private fun StoryFirestore.toDomainModel(): Story {
+    return Story(
+        id = this.id,
+        titleEs = this.titleEs,
+        titleNahuatl = this.titleNahuatl,
+        contentEs = this.contentEs,
+        contentNahuatl = this.contentNahuatl,
+        audioUrl = this.audioUrl,
+        imageUrl = this.imageUrl,
+        narratorName = this.narratorName,
+        community = this.community,
+        latitude = this.latitude,
+        longitude = this.longitude,
+        authorId = this.authorId,
+        tags = this.tags,
+        createdAt = this.createdAt.seconds * 1000
+    )
+}
+```
+
+## Map Integration
+
+Even in the map view, bilingual titles are displayed:
+
+```kotlin StoryMapScreen.kt:115
+storiesWithLocation.forEach { story ->
+    map.addMarker(
+        MarkerOptions()
+            .position(LatLng(story.latitude!!, story.longitude!!))
+            .title(story.titleEs)  // Primary title in Spanish
+            .snippet("Narrado por ${story.narratorName}")
+    )
+}
+```
+
+When a marker is tapped, the bottom sheet shows both titles:
+
+```kotlin StoryMapScreen.kt:152
+Text(
+    text = selectedStory!!.titleEs,
+    style = MaterialTheme.typography.headlineSmall,
+    fontWeight = FontWeight.Bold,
+    color = LunaLlena
+)
+
+if (selectedStory!!.titleNahuatl.isNotBlank()) {
+    Text(
+        text = selectedStory!!.titleNahuatl,
+        style = MaterialTheme.typography.titleMedium,
+        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+        color = AguaSagrada
+    )
+}
+```
+
+## Optional Nahuatl Content
+
+While the app strongly encourages bilingual content, it recognizes practical challenges:
+
+<Warning>
+Not all community members are fluent in Nahuatl. The app allows Spanish-only submissions to avoid creating barriers to participation, while still providing the infrastructure for full bilingual preservation.
+</Warning>
+
+### Validation Logic
+
+```kotlin AddStoryScreen.kt:280
+titleError = titleEs.isBlank()      // Spanish required
+contentError = contentEs.isBlank()  // Spanish required
+narratorError = narratorName.isBlank()
+// Note: titleNahuatl and contentNahuatl are NOT validated
+
+if (!titleError && !contentError && !narratorError) {
+    viewModel.addStory(
+        titleEs = titleEs,
+        titleNahuatl = titleNahuatl,        // Can be empty
+        contentEs = contentEs,
+        contentNahuatl = contentNahuatl,    // Can be empty
+        narratorName = narratorName,
+        community = community,
+        imageUri = selectedImageUri,
+        latitude = selectedLat,
+        longitude = selectedLng
+    )
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Encourage Complete Bilingual Entries">
+    Community coordinators should work with elders and Nahuatl speakers to provide translations for Spanish-only submissions.
+  </Step>
+
+  <Step title="Preserve Original Language">
+    When a story is originally told in Nahuatl, that version should be the primary source, with Spanish as the translation.
+  </Step>
+
+  <Step title="Document Dialect Variations">
+    The Nahuatl language has regional variations. Use the community field and tags to note specific dialect information.
+  </Step>
+
+  <Step title="Maintain Parallel Quality">
+    Both language versions should be equally well-written and complete, not just literal word-for-word translations.
+  </Step>
+</Steps>
+
+## Future Language Support
+
+The bilingual architecture is extensible. If needed, additional indigenous languages from the Sierra de Zongolica region (such as Totonac or other Nahua variants) could be added by:
+
+1. Expanding the Story data model with new language fields
+2. Adding corresponding UI fields in the entry forms
+3. Updating the display logic to show additional language sections
+
+<Info>
+The current Spanish-Nahuatl focus reflects the primary languages of the target communities, but the system is designed to accommodate linguistic diversity.
+</Info>

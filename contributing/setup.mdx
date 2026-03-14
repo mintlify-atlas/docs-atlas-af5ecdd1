@@ -1,0 +1,251 @@
+---
+title: 'Development Setup'
+description: 'Set up your development environment to contribute to Casa de Historias'
+icon: 'wrench'
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<CardGroup cols={2}>
+  <Card title="Android Studio" icon="android">
+    Download the latest version of Android Studio (Ladybug or newer)
+  </Card>
+  <Card title="JDK 17" icon="java">
+    Java Development Kit 17 is required for this project
+  </Card>
+  <Card title="Android SDK" icon="mobile">
+    Minimum API 26 (Android 8.0), Target API 35 (Android 15)
+  </Card>
+  <Card title="Git" icon="git">
+    Version control for cloning the repository
+  </Card>
+</CardGroup>
+
+<Note>
+The project uses **Jetpack Compose** for the UI and **Hilt** for dependency injection. Familiarity with these technologies is helpful but not required.
+</Note>
+
+## Setup Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Casa de Historias repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/yourusername/casa-de-historias.git
+    cd casa-de-historias
+    ```
+  </Step>
+
+  <Step title="Configure Firebase">
+    Casa de Historias uses Firebase for authentication, Firestore database, and cloud storage.
+    
+    1. Go to the [Firebase Console](https://console.firebase.google.com/)
+    2. Create a new project or use an existing one
+    3. Add an Android app with package name: `com.example.casadehistorias`
+    4. Download the `google-services.json` file
+    5. Place it in the `app/` directory:
+    
+    ```bash
+    cp ~/Downloads/google-services.json app/google-services.json
+    ```
+    
+    <Warning>
+    Never commit `google-services.json` to version control. It's already in `.gitignore`.
+    </Warning>
+    
+    **Enable Firebase Services:**
+    - Authentication (Email/Password)
+    - Cloud Firestore
+    - Cloud Storage
+  </Step>
+
+  <Step title="Open in Android Studio">
+    1. Launch Android Studio
+    2. Select **Open an Existing Project**
+    3. Navigate to the cloned `casa-de-historias` directory
+    4. Click **OK** to open the project
+    
+    Android Studio will automatically start indexing and syncing the project.
+  </Step>
+
+  <Step title="Sync Gradle Dependencies">
+    The project uses the following key dependencies:
+    
+    ```kotlin
+    // Core Android & Compose
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.navigation.compose)
+    
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.storage)
+    
+    // Dependency Injection
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    
+    // Local Database
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    
+    // Media Playback (Audio)
+    implementation(libs.media3.exoplayer)
+    
+    // Maps
+    implementation(libs.maplibre.android)
+    ```
+    
+    Gradle sync should happen automatically. If not, click **Sync Project with Gradle Files** in the toolbar.
+    
+    <Info>
+    The project uses Kotlin Symbol Processing (KSP) instead of kapt for faster builds.
+    </Info>
+  </Step>
+
+  <Step title="Configure Build Variants">
+    The project is configured with the following settings from `app/build.gradle.kts`:
+    
+    ```kotlin
+    android {
+        namespace = "com.example.casadehistorias"
+        compileSdk = 35
+        
+        defaultConfig {
+            applicationId = "com.example.casadehistorias"
+            minSdk = 26
+            targetSdk = 35
+            versionCode = 1
+            versionName = "1.0"
+            
+            testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
+        
+        compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Build the Project">
+    Build the project to ensure everything is configured correctly:
+    
+    ```bash
+    ./gradlew build
+    ```
+    
+    Or use the **Build** menu in Android Studio:
+    - **Build > Make Project** (Ctrl+F9 / Cmd+F9)
+  </Step>
+
+  <Step title="Run on Emulator or Device">
+    **Using an Emulator:**
+    1. Open AVD Manager (Tools > Device Manager)
+    2. Create a new virtual device with API 26 or higher
+    3. Start the emulator
+    4. Click the **Run** button (green triangle) or press Shift+F10
+    
+    **Using a Physical Device:**
+    1. Enable **Developer Options** on your Android device
+    2. Enable **USB Debugging**
+    3. Connect your device via USB
+    4. Select your device from the run configuration dropdown
+    5. Click **Run**
+    
+    <Tip>
+    For testing location-based features (story map), use a device with Google Play Services or configure a location in the emulator.
+    </Tip>
+  </Step>
+</Steps>
+
+## Project Structure
+
+Understanding the project architecture:
+
+```
+app/src/main/java/com/example/casadehistorias/
+├── data/
+│   ├── firebase/          # Firebase repositories (Auth, Firestore, Storage)
+│   ├── local/             # Room database (DAO, entities)
+│   └── repository/        # Data layer repositories
+├── di/                    # Hilt dependency injection modules
+├── domain/
+│   └── model/             # Domain models (Story, etc.)
+├── ui/
+│   ├── auth/              # Login & signup screens
+│   ├── story/             # Story list, detail, map screens
+│   ├── theme/             # Material 3 theme configuration
+│   └── navigation/        # Navigation graph
+├── MainActivity.kt        # Entry point activity
+└── CasaDeHistoriasApp.kt  # Application class with @HiltAndroidApp
+```
+
+## Gradle Properties
+
+The project uses these Gradle settings (`gradle.properties`):
+
+```properties
+# JVM settings
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+
+# KSP incremental compilation
+ksp.incremental=true
+ksp.incremental.log=true
+
+# Kotlin code style
+kotlin.code.style=official
+
+# AndroidX
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Gradle sync fails">
+    - Ensure you're using JDK 17 (check in File > Project Structure > SDK Location)
+    - Clear Gradle cache: `./gradlew clean`
+    - Invalidate caches: File > Invalidate Caches > Invalidate and Restart
+  </Accordion>
+  
+  <Accordion title="google-services.json missing error">
+    Make sure you've downloaded and placed the Firebase configuration file in the `app/` directory. See Step 2 for details.
+  </Accordion>
+  
+  <Accordion title="Build fails with 'Execution failed for task processDebugGoogleServices'">
+    Verify that your `google-services.json` has the correct package name: `com.example.casadehistorias`
+  </Accordion>
+  
+  <Accordion title="KSP annotation processing errors">
+    Clean and rebuild:
+    ```bash
+    ./gradlew clean
+    ./gradlew build
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that your environment is set up:
+
+<CardGroup cols={2}>
+  <Card title="Contribution Guidelines" icon="book" href="/contributing/guidelines">
+    Learn about code style, commit conventions, and best practices
+  </Card>
+  <Card title="Testing" icon="flask" href="/contributing/testing">
+    Write and run tests for your contributions
+  </Card>
+</CardGroup>

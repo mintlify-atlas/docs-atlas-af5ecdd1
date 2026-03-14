@@ -1,0 +1,684 @@
+---
+title: 'Testing'
+description: 'Testing strategies and practices for Casa de Historias'
+icon: 'flask'
+---
+
+## Testing Overview
+
+Casa de Historias uses a comprehensive testing approach:
+
+<CardGroup cols={3}>
+  <Card title="Unit Tests" icon="cube">
+    Test individual components in isolation with JUnit
+  </Card>
+  <Card title="Instrumented Tests" icon="mobile">
+    Test Android-specific code with Espresso
+  </Card>
+  <Card title="Compose UI Tests" icon="window">
+    Test Jetpack Compose UI components
+  </Card>
+</CardGroup>
+
+## Test Configuration
+
+The project is configured with the following test dependencies in `app/build.gradle.kts`:
+
+```kotlin
+dependencies {
+    // Unit testing
+    testImplementation(libs.junit)
+    
+    // Instrumented testing
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    
+    // Compose UI testing
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    
+    // Debug implementations
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+```
+
+Test runner configuration:
+
+```kotlin
+android {
+    defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+}
+```
+
+## Unit Tests
+
+Unit tests run on the JVM and don't require an Android device or emulator.
+
+### Location
+
+```
+app/src/test/java/com/example/casadehistorias/
+```
+
+### Writing Unit Tests
+
+<Steps>
+  <Step title="Create Test Class">
+    Create test files in the `test` directory matching your source structure:
+    
+    ```kotlin
+    // app/src/test/java/com/example/casadehistorias/ExampleUnitTest.kt
+    package com.example.casadehistorias
+    
+    import org.junit.Test
+    import org.junit.Assert.*
+    
+    class ExampleUnitTest {
+        @Test
+        fun addition_isCorrect() {
+            assertEquals(4, 2 + 2)
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Test ViewModels">
+    Test business logic in ViewModels:
+    
+    ```kotlin
+    package com.example.casadehistorias.ui.story
+    
+    import com.example.casadehistorias.data.repository.StoryRepository
+    import com.example.casadehistorias.domain.model.Story
+    import kotlinx.coroutines.ExperimentalCoroutinesApi
+    import kotlinx.coroutines.test.runTest
+    import org.junit.Before
+    import org.junit.Test
+    import org.junit.Assert.*
+    import org.mockito.Mock
+    import org.mockito.Mockito.*
+    import org.mockito.MockitoAnnotations
+    
+    @ExperimentalCoroutinesApi
+    class StoryViewModelTest {
+        
+        @Mock
+        private lateinit var repository: StoryRepository
+        
+        private lateinit var viewModel: StoryViewModel
+        
+        @Before
+        fun setup() {
+            MockitoAnnotations.openMocks(this)
+            viewModel = StoryViewModel(repository)
+        }
+        
+        @Test
+        fun `loadStories updates UI state with stories`() = runTest {
+            // Given
+            val mockStories = listOf(
+                Story(
+                    id = "1",
+                    titleEs = "La Leyenda del Volcán",
+                    titleNahuatl = "Tepētl īxiptli",
+                    contentEs = "Había una vez...",
+                    contentNahuatl = "Yankuik kāhuitl...",
+                    audioUrl = null,
+                    imageUrl = null,
+                    narratorName = "María García",
+                    community = "Tlaquilpa"
+                )
+            )
+            `when`(repository.getAllStories()).thenReturn(mockStories)
+            
+            // When
+            viewModel.loadStories()
+            
+            // Then
+            assertEquals(mockStories, viewModel.stories.value)
+            verify(repository).getAllStories()
+        }
+        
+        @Test
+        fun `filterByLanguage filters stories correctly`() {
+            // Test bilingual filtering logic
+            val story = Story(
+                id = "1",
+                titleEs = "Título en español",
+                titleNahuatl = "Tlajtōlli nauatl",
+                contentEs = "Contenido",
+                contentNahuatl = "Tlahcuilōlli",
+                audioUrl = null,
+                imageUrl = null,
+                narratorName = "Test",
+                community = "Test"
+            )
+            
+            assertTrue(story.titleEs.isNotEmpty())
+            assertTrue(story.titleNahuatl.isNotEmpty())
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Test Repositories">
+    Test data layer logic:
+    
+    ```kotlin
+    package com.example.casadehistorias.data.repository
+    
+    import com.example.casadehistorias.data.firebase.FirestoreRepository
+    import com.example.casadehistorias.data.local.dao.StoryDao
+    import com.example.casadehistorias.domain.model.Story
+    import kotlinx.coroutines.test.runTest
+    import org.junit.Before
+    import org.junit.Test
+    import org.junit.Assert.*
+    import org.mockito.Mock
+    import org.mockito.Mockito.*
+    import org.mockito.MockitoAnnotations
+    
+    class StoryRepositoryTest {
+        
+        @Mock
+        private lateinit var firestoreRepository: FirestoreRepository
+        
+        @Mock
+        private lateinit var storyDao: StoryDao
+        
+        private lateinit var repository: StoryRepository
+        
+        @Before
+        fun setup() {
+            MockitoAnnotations.openMocks(this)
+            repository = StoryRepository(firestoreRepository, storyDao)
+        }
+        
+        @Test
+        fun `getAllStories returns cached stories when offline`() = runTest {
+            // Given
+            val cachedStories = listOf(
+                Story(
+                    id = "1",
+                    titleEs = "Cached Story",
+                    titleNahuatl = "Tlajtōlli",
+                    contentEs = "Content",
+                    contentNahuatl = "Tlahcuilōlli",
+                    audioUrl = null,
+                    imageUrl = null,
+                    narratorName = "Test",
+                    community = "Test"
+                )
+            )
+            
+            // Mock behavior
+            // When
+            // Then
+            assertNotNull(cachedStories)
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Running Unit Tests
+
+<Tabs>
+  <Tab title="Command Line">
+    ```bash
+    # Run all unit tests
+    ./gradlew test
+    
+    # Run tests for debug build
+    ./gradlew testDebugUnitTest
+    
+    # Run tests for specific class
+    ./gradlew test --tests StoryViewModelTest
+    
+    # Run with coverage report
+    ./gradlew test jacocoTestReport
+    ```
+  </Tab>
+  
+  <Tab title="Android Studio">
+    1. Right-click on the test file or directory
+    2. Select **Run 'Tests in...'**
+    3. View results in the **Run** window
+    
+    Or use the green play button next to individual test methods.
+  </Tab>
+</Tabs>
+
+## Instrumented Tests
+
+Instrumented tests run on an Android device or emulator and can test Android framework dependencies.
+
+### Location
+
+```
+app/src/androidTest/java/com/example/casadehistorias/
+```
+
+### Writing Instrumented Tests
+
+```kotlin
+// app/src/androidTest/java/com/example/casadehistorias/ExampleInstrumentedTest.kt
+package com.example.casadehistorias
+
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.Assert.*
+
+@RunWith(AndroidJUnit4::class)
+class ExampleInstrumentedTest {
+    @Test
+    fun useAppContext() {
+        // Context of the app under test
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals("com.example.casadehistorias", appContext.packageName)
+    }
+}
+```
+
+### Testing Room Database
+
+```kotlin
+package com.example.casadehistorias.data.local
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.casadehistorias.data.local.dao.StoryDao
+import com.example.casadehistorias.data.local.entities.StoryEntity
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.Assert.*
+
+@RunWith(AndroidJUnit4::class)
+class StoryDaoTest {
+    
+    private lateinit var database: AppDatabase
+    private lateinit var storyDao: StoryDao
+    
+    @Before
+    fun createDb() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database = Room.inMemoryDatabaseBuilder(
+            context,
+            AppDatabase::class.java
+        ).build()
+        storyDao = database.storyDao()
+    }
+    
+    @After
+    fun closeDb() {
+        database.close()
+    }
+    
+    @Test
+    fun insertAndRetrieveStory() = runBlocking {
+        // Given
+        val story = StoryEntity(
+            id = "test-1",
+            titleEs = "Test Story",
+            titleNahuatl = "Tlajtōlli",
+            contentEs = "Content",
+            contentNahuatl = "Tlahcuilōlli",
+            narratorName = "Test Narrator",
+            community = "Test Community",
+            createdAt = System.currentTimeMillis()
+        )
+        
+        // When
+        storyDao.insert(story)
+        val retrieved = storyDao.getById("test-1")
+        
+        // Then
+        assertNotNull(retrieved)
+        assertEquals(story.titleEs, retrieved?.titleEs)
+        assertEquals(story.titleNahuatl, retrieved?.titleNahuatl)
+    }
+}
+```
+
+### Running Instrumented Tests
+
+<Warning>
+You must have a connected device or running emulator to run instrumented tests.
+</Warning>
+
+```bash
+# Run all instrumented tests
+./gradlew connectedAndroidTest
+
+# Run on specific device
+./gradlew connectedDebugAndroidTest
+
+# Run specific test class
+./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.casadehistorias.ExampleInstrumentedTest
+```
+
+## Compose UI Tests
+
+Test Jetpack Compose UI components using the Compose testing framework.
+
+### Writing Compose Tests
+
+```kotlin
+package com.example.casadehistorias.ui.story
+
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import com.example.casadehistorias.domain.model.Story
+import com.example.casadehistorias.ui.theme.CasaDeHistoriasTheme
+import org.junit.Rule
+import org.junit.Test
+
+class StoryDetailScreenTest {
+    
+    @get:Rule
+    val composeTestRule = createComposeRule()
+    
+    @Test
+    fun storyDetailScreen_displaysStoryContent() {
+        // Given
+        val testStory = Story(
+            id = "test-1",
+            titleEs = "La Leyenda del Maíz",
+            titleNahuatl = "Tlīlli īxiptli",
+            contentEs = "Esta es la historia del maíz sagrado...",
+            contentNahuatl = "Ini huēhue tlajtōlli tōnkāmil...",
+            audioUrl = null,
+            imageUrl = null,
+            narratorName = "Juan Hernández",
+            community = "Tlaquilpa",
+            latitude = 18.7,
+            longitude = -97.0
+        )
+        
+        // When
+        composeTestRule.setContent {
+            CasaDeHistoriasTheme {
+                StoryDetailScreen(
+                    story = testStory,
+                    onNavigateBack = {}
+                )
+            }
+        }
+        
+        // Then
+        composeTestRule
+            .onNodeWithText("La Leyenda del Maíz")
+            .assertIsDisplayed()
+        
+        composeTestRule
+            .onNodeWithText("Juan Hernández")
+            .assertIsDisplayed()
+        
+        composeTestRule
+            .onNodeWithText("Tlaquilpa")
+            .assertIsDisplayed()
+    }
+    
+    @Test
+    fun storyDetailScreen_togglesLanguage() {
+        // Given
+        val testStory = Story(
+            id = "test-1",
+            titleEs = "Título Español",
+            titleNahuatl = "Tlajtōlli Nauatl",
+            contentEs = "Contenido en español",
+            contentNahuatl = "Tlahcuilōlli nauatl",
+            audioUrl = null,
+            imageUrl = null,
+            narratorName = "Test",
+            community = "Test"
+        )
+        
+        composeTestRule.setContent {
+            CasaDeHistoriasTheme {
+                StoryDetailScreen(
+                    story = testStory,
+                    onNavigateBack = {}
+                )
+            }
+        }
+        
+        // When - Click language toggle button
+        composeTestRule
+            .onNodeWithContentDescription("Toggle language")
+            .performClick()
+        
+        // Then - Nahuatl content should be displayed
+        composeTestRule
+            .onNodeWithText("Tlajtōlli Nauatl")
+            .assertIsDisplayed()
+    }
+    
+    @Test
+    fun storyCard_triggersClickListener() {
+        var clicked = false
+        val testStory = Story(
+            id = "test-1",
+            titleEs = "Test Title",
+            titleNahuatl = "Tlajtōlli",
+            contentEs = "Content",
+            contentNahuatl = "Tlahcuilōlli",
+            audioUrl = null,
+            imageUrl = null,
+            narratorName = "Test",
+            community = "Test"
+        )
+        
+        composeTestRule.setContent {
+            CasaDeHistoriasTheme {
+                StoryCard(
+                    story = testStory,
+                    onClick = { clicked = true }
+                )
+            }
+        }
+        
+        composeTestRule
+            .onNodeWithText("Test Title")
+            .performClick()
+        
+        assert(clicked)
+    }
+}
+```
+
+### Common Compose Test Assertions
+
+```kotlin
+// Find nodes
+composeTestRule.onNodeWithText("Text")
+composeTestRule.onNodeWithContentDescription("Description")
+composeTestRule.onNodeWithTag("tag")
+composeTestRule.onAllNodesWithText("Text")
+
+// Assertions
+.assertIsDisplayed()
+.assertIsNotDisplayed()
+.assertIsEnabled()
+.assertIsNotEnabled()
+.assertTextEquals("Expected text")
+.assertTextContains("Partial text")
+
+// Actions
+.performClick()
+.performTextInput("Input text")
+.performScrollTo()
+.performTouchInput { swipeUp() }
+```
+
+## Test Coverage Expectations
+
+Aim for the following test coverage:
+
+<CardGroup cols={2}>
+  <Card title="ViewModels" icon="chart-simple">
+    **80%+ coverage**
+    
+    Test all business logic and state management
+  </Card>
+  
+  <Card title="Repositories" icon="database">
+    **75%+ coverage**
+    
+    Test data operations and error handling
+  </Card>
+  
+  <Card title="UI Components" icon="window">
+    **60%+ coverage**
+    
+    Test critical user interactions and state changes
+  </Card>
+  
+  <Card title="Utilities" icon="wrench">
+    **90%+ coverage**
+    
+    Test helper functions and extensions thoroughly
+  </Card>
+</CardGroup>
+
+## Continuous Integration
+
+All tests run automatically on pull requests:
+
+```yaml
+# .github/workflows/android.yml (example)
+name: Android CI
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+      - name: Run unit tests
+        run: ./gradlew test
+      - name: Run instrumented tests
+        run: ./gradlew connectedAndroidTest
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Test Bilingual Content">
+    Always verify that both Spanish and Nahuatl content is present:
+    
+    ```kotlin
+    @Test
+    fun `story has both Spanish and Nahuatl content`() {
+        val story = createTestStory()
+        
+        assertTrue(story.titleEs.isNotBlank())
+        assertTrue(story.titleNahuatl.isNotBlank())
+        assertTrue(story.contentEs.isNotBlank())
+        assertTrue(story.contentNahuatl.isNotBlank())
+    }
+    ```
+  </Step>
+  
+  <Step title="Mock External Dependencies">
+    Use mocking frameworks for Firebase and network calls:
+    
+    ```kotlin
+    @Mock
+    private lateinit var firestore: FirebaseFirestore
+    
+    @Mock
+    private lateinit var storage: FirebaseStorage
+    ```
+  </Step>
+  
+  <Step title="Test Edge Cases">
+    - Null values for optional fields
+    - Empty lists
+    - Network failures
+    - Permission denials
+    - Large data sets
+  </Step>
+  
+  <Step title="Use Descriptive Test Names">
+    ```kotlin
+    // Good
+    @Test
+    fun `loadStories shows error when network fails`()
+    
+    // Bad
+    @Test
+    fun test1()
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+Run tests locally before pushing to catch issues early and speed up the CI pipeline.
+</Tip>
+
+## Debugging Tests
+
+### View Test Reports
+
+After running tests, view HTML reports:
+
+```bash
+# Unit test reports
+open app/build/reports/tests/testDebugUnitTest/index.html
+
+# Instrumented test reports
+open app/build/reports/androidTests/connected/index.html
+```
+
+### Enable Test Logging
+
+Add to `gradle.properties` for verbose test output:
+
+```properties
+org.gradle.logging.level=debug
+```
+
+### Debug Tests in Android Studio
+
+1. Set breakpoints in test code
+2. Right-click test method
+3. Select **Debug 'testMethodName'**
+4. Step through code in debugger
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="JUnit Documentation" icon="book" href="https://junit.org/junit4/">
+    Learn more about JUnit testing framework
+  </Card>
+  
+  <Card title="Compose Testing" icon="book" href="https://developer.android.com/jetpack/compose/testing">
+    Official Compose testing guide
+  </Card>
+  
+  <Card title="Espresso Guide" icon="book" href="https://developer.android.com/training/testing/espresso">
+    Android UI testing with Espresso
+  </Card>
+  
+  <Card title="Testing Best Practices" icon="book" href="https://developer.android.com/training/testing">
+    Android testing fundamentals
+  </Card>
+</CardGroup>

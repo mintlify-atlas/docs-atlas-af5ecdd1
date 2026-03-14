@@ -1,0 +1,428 @@
+---
+title: Map Exploration
+description: Discover legends geographically using the interactive MapLibre map
+icon: map
+---
+
+The Story Map screen provides a visual, geographic way to explore indigenous legends based on where they originated or where events took place. Using MapLibre GL with OpenFreeMap tiles, users can see the spatial distribution of stories across the Sierra de Zongolica region.
+
+## Map Overview
+
+<CardGroup cols={2}>
+  <Card title="Interactive Map" icon="map-location-dot">
+    Pan, zoom, and navigate the Sierra de Zongolica region
+  </Card>
+  <Card title="Story Markers" icon="location-dot">
+    Each legend with location data appears as a marker
+  </Card>
+  <Card title="Bottom Sheet Preview" icon="window-restore">
+    Tap markers to preview stories in a modal sheet
+  </Card>
+  <Card title="Direct Navigation" icon="arrow-up-right-from-square">
+    Open full story details directly from the map
+  </Card>
+</CardGroup>
+
+## Map Implementation
+
+The map screen uses MapLibre GL Native for Android with OpenFreeMap tiles:
+
+```kotlin
+@Composable
+fun StoryMapScreen(
+    viewModel: StoryViewModel,
+    onStoryClick: (String) -> Unit
+) {
+    val stories by viewModel.stories.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    // Sierra de Zongolica center coordinates
+    val zongolicaLat = 18.6667
+    val zongolicaLng = -97.0000
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Mapa de Leyendas",
+                        fontWeight = FontWeight.Bold,
+                        color = LunaLlena
+                    )
+                }
+            )
+        }
+    ) { padding ->
+        // Map content
+    }
+}
+```
+
+## Loading States
+
+### While Loading Stories
+
+```kotlin
+if (isLoading) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(color = AguaSagrada)
+    }
+}
+```
+
+<Info>
+  The loading indicator appears briefly while stories are fetched from Firebase or loaded from the Room cache.
+</Info>
+
+### Empty State
+
+When no stories have location data:
+
+```kotlin
+val storiesWithLocation = stories.filter { 
+    it.latitude != null && it.longitude != null 
+}
+
+if (storiesWithLocation.isEmpty()) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("🗺️", fontSize = 64.sp)
+            Text(
+                "Sin ubicaciones",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = LunaLlena
+            )
+            Text(
+                "Aún no hay historias con\nubicación en el mapa",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSecundario,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+```
+
+This empty state encourages users to add location data when contributing stories.
+
+## MapLibre Integration
+
+### Setting Up the Map
+
+The map is integrated using AndroidView to embed the native MapView:
+
+```kotlin
+AndroidView(
+    modifier = Modifier
+        .fillMaxSize()
+        .padding(padding),
+    factory = { context ->
+        MapLibre.getInstance(context)
+        val mapView = MapView(context)
+        mapView.onCreate(null)
+        mapView.getMapAsync { map ->
+            map.setStyle(
+                Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")
+            ) {
+                // Map configuration
+            }
+        }
+        mapView
+    },
+    update = { mapView ->
+        mapView.onResume()
+    }
+)
+```
+
+Key components:
+- `MapLibre.getInstance(context)` initializes the library
+- `getMapAsync` ensures the map is ready before configuration
+- `Style.Builder().fromUri()` loads the OpenFreeMap Liberty style
+- `update` lambda handles lifecycle events
+
+<Note>
+  The "liberty" style provides a clean, readable map design suitable for showing cultural and geographic information.
+</Note>
+
+### Initial Camera Position
+
+The map centers on the Sierra de Zongolica region:
+
+```kotlin
+map.cameraPosition = CameraPosition.Builder()
+    .target(LatLng(18.6667, -97.0000))
+    .zoom(9.0)
+    .build()
+```
+
+- **Target**: Geographic center of the Sierra de Zongolica
+- **Zoom**: 9.0 provides a regional overview showing multiple communities
+- Users can pan and zoom to explore surrounding areas
+
+## Adding Story Markers
+
+Stories with latitude and longitude data are displayed as markers:
+
+```kotlin
+storiesWithLocation.forEach { story ->
+    map.addMarker(
+        MarkerOptions()
+            .position(LatLng(story.latitude!!, story.longitude!!))
+            .title(story.titleEs)
+            .snippet("Narrado por ${story.narratorName}")
+    )
+}
+```
+
+Each marker includes:
+- **Position**: The story's latitude/longitude coordinates
+- **Title**: Spanish title of the legend
+- **Snippet**: "Narrado por [narrator name]" for context
+
+<Tip>
+  When multiple stories share similar locations, markers may overlap. Zoom in to see individual markers more clearly.
+</Tip>
+
+## Marker Interaction
+
+### Tap to Preview
+
+When a user taps a marker, a bottom sheet appears:
+
+```kotlin
+var selectedStory by remember { mutableStateOf<Story?>(null) }
+var showSheet by remember { mutableStateOf(false) }
+
+map.setOnMarkerClickListener { marker ->
+    selectedStory = storiesWithLocation.find { it.titleEs == marker.title }
+    if (selectedStory != null) {
+        showSheet = true
+    }
+    true
+}
+```
+
+<Steps>
+  <Step title="Tap Marker">
+    User taps any marker on the map.
+  </Step>
+  
+  <Step title="Find Story">
+    The click listener matches the marker title to find the corresponding story object.
+  </Step>
+  
+  <Step title="Show Preview">
+    A bottom sheet slides up with story details.
+  </Step>
+  
+  <Step title="Navigate or Dismiss">
+    User can read the full story or dismiss to continue exploring the map.
+  </Step>
+</Steps>
+
+### Bottom Sheet Preview
+
+The bottom sheet displays key story information:
+
+```kotlin
+if (showSheet && selectedStory != null) {
+    ModalBottomSheet(
+        onDismissRequest = { showSheet = false },
+        containerColor = FondoTarjeta,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = AguaSagrada) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = selectedStory!!.titleEs,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = LunaLlena
+            )
+            
+            if (selectedStory!!.titleNahuatl.isNotBlank()) {
+                Text(
+                    text = selectedStory!!.titleNahuatl,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontStyle = FontStyle.Italic,
+                    color = AguaSagrada
+                )
+            }
+            
+            Text(
+                text = selectedStory!!.contentEs,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSecundario,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Button(
+                onClick = { 
+                    showSheet = false
+                    onStoryClick(selectedStory!!.id) 
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AguaSagrada,
+                    contentColor = NocheProfunda
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Leer leyenda completa", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+```
+
+The bottom sheet includes:
+1. **Spanish Title**: Main heading in bold
+2. **Nahuatl Title**: Italic turquoise text (if available)
+3. **Content Preview**: First 3 lines of the story with ellipsis
+4. **Action Button**: "Leer leyenda completa" to open full details
+
+<Warning>
+  The content preview is truncated to 3 lines to keep the bottom sheet compact. Users must tap the button to read the complete story.
+</Warning>
+
+## Map Controls
+
+### Pan and Zoom
+
+MapLibre provides standard map gestures:
+- **Pan**: Drag with one finger to move around
+- **Zoom**: Pinch with two fingers to zoom in/out
+- **Rotate**: Two-finger rotation gesture (if enabled)
+- **Tilt**: Two-finger vertical drag for 3D perspective (if enabled)
+
+### Navigation Workflow
+
+<Steps>
+  <Step title="Open Map Screen">
+    Navigate to the "Mapa" tab from the bottom navigation bar.
+  </Step>
+  
+  <Step title="Explore Region">
+    Pan and zoom to explore the Sierra de Zongolica. Markers indicate story locations.
+  </Step>
+  
+  <Step title="Tap Marker">
+    Tap any marker to see a preview of that legend in the bottom sheet.
+  </Step>
+  
+  <Step title="Read Full Story">
+    Tap "Leer leyenda completa" to navigate to the full story detail screen.
+  </Step>
+  
+  <Step title="Return to Map">
+    Use the back button to return to the map and continue exploring.
+  </Step>
+</Steps>
+
+## Geographic Insights
+
+The map view reveals patterns in the legend collection:
+
+<CardGroup cols={2}>
+  <Card title="Community Clusters" icon="users">
+    See which communities have contributed more stories
+  </Card>
+  <Card title="Regional Themes" icon="book-open">
+    Discover if certain areas have specific types of legends
+  </Card>
+  <Card title="Coverage Gaps" icon="map-location-dot">
+    Identify regions that need more story contributions
+  </Card>
+  <Card title="Cultural Geography" icon="mountain">
+    Understand how legends relate to physical landscape features
+  </Card>
+</CardGroup>
+
+## Technical Details
+
+### MapLibre vs Google Maps
+
+Casa de Historias uses MapLibre GL with OpenFreeMap because:
+
+- **Open Source**: No API keys or usage limits
+- **Free Tiles**: OpenFreeMap provides tiles at no cost
+- **Customizable**: Full control over map styling
+- **Privacy**: No tracking or data collection
+- **Offline Support**: Tiles can be cached for offline use
+
+### Coordinate System
+
+Locations use standard geographic coordinates:
+- **Latitude**: -90 to 90 degrees (N/S)
+- **Longitude**: -180 to 180 degrees (E/W)
+- Sierra de Zongolica: ~18.6667°N, 97.0000°W
+
+### Performance Considerations
+
+The map handles large numbers of stories efficiently:
+
+```kotlin
+val storiesWithLocation = stories.filter { 
+    it.latitude != null && it.longitude != null 
+}
+```
+
+- Only stories with valid coordinates are processed
+- Markers are added in a single pass during map initialization
+- MapLibre clusters markers at low zoom levels automatically
+
+<Info>
+  As the story collection grows, MapLibre's built-in marker clustering ensures the map remains performant and readable at all zoom levels.
+</Info>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Explore by Zoom" icon="magnifying-glass-plus">
+    Start with a regional view, then zoom in to see individual communities and specific locations.
+  </Card>
+  
+  <Card title="Cross-Reference" icon="arrows-left-right">
+    Use the map alongside the community filter in Discover to understand geographic story distribution.
+  </Card>
+  
+  <Card title="Add Locations" icon="location-crosshairs">
+    When contributing stories, always add location data to help others discover geographically relevant legends.
+  </Card>
+  
+  <Card title="Plan Visits" icon="route">
+    Use the map to plan visits to communities and locations featured in the stories.
+  </Card>
+</CardGroup>
+
+## Future Enhancements
+
+Potential map features for future development:
+- Heatmap layer showing story density
+- Custom marker icons for different story types
+- Route planning to visit multiple story locations
+- Offline tile caching for remote areas
+- Community boundary overlays
+- Historical map layers
+
+<Tip>
+  The map view is particularly powerful for educational use, helping students and researchers understand the geographic context of indigenous legends and oral traditions.
+</Tip>

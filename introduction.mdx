@@ -1,0 +1,143 @@
+---
+title: Introduction
+description: Preserving indigenous legends from Sierra de Zongolica through bilingual storytelling
+---
+
+# Casa de Historias
+
+Casa de Historias is a bilingual Android application dedicated to preserving and sharing indigenous legends from the Sierra de Zongolica region of Mexico. The app provides a platform for communities to document their oral traditions in both Spanish and Nahuatl, ensuring these valuable cultural narratives are preserved for future generations.
+
+## Mission
+
+Oral traditions form the backbone of indigenous cultural identity, yet they are at risk of being lost as languages decline and communities modernize. Casa de Historias addresses this challenge by:
+
+- **Preserving oral histories** through digital documentation
+- **Supporting bilingual access** with content in Spanish and Nahuatl
+- **Connecting communities** by mapping stories to their geographic origins
+- **Enabling audio preservation** with voice recordings from original narrators
+- **Democratizing storytelling** by allowing community members to contribute
+
+## Core Concepts
+
+### Stories
+
+Stories are the heart of Casa de Historias. Each story represents a legend, myth, or traditional tale from the Sierra de Zongolica region.
+
+<Info>
+  Every story includes bilingual content with fields for both Spanish (`titleEs`, `contentEs`) and Nahuatl (`titleNahuatl`, `contentNahuatl`) versions.
+</Info>
+
+A story in the app contains:
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+### Communities
+
+Each story is associated with a specific community in the Sierra de Zongolica. Communities represent the geographic and cultural origins of the stories, allowing users to:
+
+- Browse stories by their community of origin
+- See where stories originated on an interactive map
+- Understand the cultural context of different regions
+
+<Card title="Discover by Community" icon="map-location-dot" href="#">
+  Browse stories organized by their communities of origin, from Tequila to Atlanca and beyond.
+</Card>
+
+### Narrators
+
+Narrators are the storytellers and culture bearers who share these legends. Each story preserves the name of the person who contributed the narrative, honoring their role in cultural preservation.
+
+<Tip>
+  Many stories include audio recordings (`audioUrl`) featuring the original narrator's voice, preserving not just the words but also the authentic oral delivery.
+</Tip>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Bilingual Content" icon="language">
+    All stories available in both Spanish and Nahuatl, supporting language revitalization efforts.
+  </Card>
+  
+  <Card title="Audio Recordings" icon="volume-high">
+    Listen to stories in the narrator's own voice, preserving authentic oral traditions.
+  </Card>
+  
+  <Card title="Geographic Mapping" icon="map">
+    Explore stories on an interactive map showing their community origins.
+  </Card>
+  
+  <Card title="Community Contributions" icon="users">
+    Users can add new stories, building a collaborative archive of cultural knowledge.
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+Casa de Historias is built using modern Android development tools:
+
+- **Kotlin** - Primary programming language
+- **Jetpack Compose** - Modern declarative UI framework
+- **Firebase** - Backend services including Firestore, Authentication, and Storage
+- **Room Database** - Local data persistence for offline access
+- **Hilt** - Dependency injection
+- **MapLibre** - Interactive mapping
+- **Media3** - Audio playback
+
+<Note>
+  The app supports Android 8.0 (API level 26) and above, ensuring broad compatibility across devices.
+</Note>
+
+## User Journey
+
+The app is designed around five main screens accessible via bottom navigation:
+
+<Steps>
+  <Step title="Explorar (Discover)">
+    Browse featured stories, new additions, stories with audio, and explore by community.
+  </Step>
+  
+  <Step title="Leyendas (Stories)">
+    View a complete list of all published stories with search and filter capabilities.
+  </Step>
+  
+  <Step title="Mapa (Map)">
+    See stories plotted on an interactive map of Sierra de Zongolica.
+  </Step>
+  
+  <Step title="Favoritos (Favorites)">
+    Access your saved stories for quick reference.
+  </Step>
+  
+  <Step title="Perfil (Profile)">
+    Manage your account, view your contributed stories, and access settings.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="mobile" href="/installation">
+    Learn how to install the app on your Android device.
+  </Card>
+  
+  <Card title="Developer Quickstart" icon="code" href="/quickstart">
+    Set up your development environment and start contributing.
+  </Card>
+</CardGroup>

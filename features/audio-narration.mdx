@@ -1,0 +1,304 @@
+---
+title: Audio Narration
+description: Learn how Casa de Historias integrates audio recordings to preserve oral storytelling traditions
+icon: microphone
+---
+
+Oral tradition is fundamental to indigenous storytelling. Casa de Historias supports audio recordings to capture the voice, intonation, and emotional nuance of traditional narrators.
+
+## Story Model Audio Fields
+
+The Story data model includes fields for both audio content and narrator attribution:
+
+```kotlin Story.kt:3
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,      // URL to audio file in Firebase Storage
+    val imageUrl: String?,
+    val narratorName: String,   // Name of the person who told the story
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+<Info>
+The `audioUrl` field is nullable, allowing stories to be submitted without audio initially. Audio can be added later through the edit interface.
+</Info>
+
+## Narrator Attribution
+
+Every story must identify its narrator, honoring the oral tradition:
+
+```kotlin AddStoryScreen.kt:170
+CustomOutlinedTextField(
+    value = narratorName,
+    onValueChange = { narratorName = it; narratorError = false },
+    label = "Nombre del Narrador *",
+    icon = Icons.Outlined.Person,
+    isError = narratorError
+)
+```
+
+The narrator's name is prominently displayed in the story detail view:
+
+```kotlin StoryDetailScreen.kt:155
+Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp)
+) {
+    Icon(
+        imageVector = Icons.Default.Person,
+        contentDescription = null,
+        tint = TextoSecundario,
+        modifier = Modifier.size(20.dp)
+    )
+    Text(
+        text = "Narrado por ${story.narratorName}",
+        style = MaterialTheme.typography.bodyLarge,
+        color = TextoSecundario,
+        fontSize = 15.sp
+    )
+}
+```
+
+<Note>
+The narrator field is mandatory even if no audio is provided, ensuring that the source of the story is always documented for cultural preservation purposes.
+</Note>
+
+## Firebase Storage Integration
+
+Audio files are stored in Firebase Cloud Storage, with URLs saved in Firestore:
+
+### Storage Repository
+
+The `StorageRepository` handles audio file uploads:
+
+```kotlin StorageRepository.kt:24
+suspend fun uploadAudio(uri: Uri, storyId: String): String? {
+    return try {
+        val ref = storage.reference.child("stories/$storyId/audio.mp3")
+        ref.putFile(uri).await()
+        ref.downloadUrl.await().toString()
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+<Steps>
+  <Step title="File Organization">
+    Audio files are organized by story ID: `stories/{storyId}/audio.mp3`
+  </Step>
+
+  <Step title="Upload Process">
+    The app uploads the audio file to Firebase Storage and waits for completion using coroutines
+  </Step>
+
+  <Step title="URL Retrieval">
+    After upload, Firebase returns a permanent download URL that's stored in the Story document
+  </Step>
+
+  <Step title="Error Handling">
+    If upload fails, the method returns null, allowing the story to be saved without audio
+  </Step>
+</Steps>
+
+### Storage Structure
+
+```
+firebase-storage:
+  └── stories/
+      ├── {story-id-1}/
+      │   ├── audio.mp3
+      │   └── cover.jpg
+      ├── {story-id-2}/
+      │   ├── audio.mp3
+      │   └── cover.jpg
+      └── {story-id-3}/
+          ├── audio.mp3
+          └── cover.jpg
+```
+
+## Audio File Deletion
+
+When stories are deleted or audio is replaced, the old file should be removed:
+
+```kotlin StorageRepository.kt:34
+suspend fun deleteFile(url: String): Boolean {
+    return try {
+        storage.getReferenceFromUrl(url).delete().await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+<Warning>
+Always check if `audioUrl` is non-null before attempting deletion to avoid exceptions.
+</Warning>
+
+## Audio Playback Architecture
+
+While the current codebase shows the storage infrastructure, audio playback would typically use Android's Media3 (ExoPlayer) framework:
+
+### Recommended Implementation
+
+```kotlin
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+
+class AudioPlayerViewModel(context: Context) : ViewModel() {
+    private val player: ExoPlayer = ExoPlayer.Builder(context).build()
+    
+    fun playAudio(audioUrl: String) {
+        val mediaItem = MediaItem.fromUri(audioUrl)
+        player.setMediaItem(mediaItem)
+        player.prepare()
+        player.play()
+    }
+    
+    fun pauseAudio() {
+        player.pause()
+    }
+    
+    fun stopAudio() {
+        player.stop()
+    }
+    
+    override fun onCleared() {
+        player.release()
+        super.onCleared()
+    }
+}
+```
+
+### Playback UI Components
+
+A typical audio player UI would include:
+
+<CardGroup cols={2}>
+  <Card title="Play/Pause Button" icon="circle-play">
+    Toggle between playing and pausing the audio narration
+  </Card>
+  <Card title="Progress Bar" icon="slider">
+    Show current playback position and allow scrubbing
+  </Card>
+  <Card title="Duration Display" icon="clock">
+    Show elapsed time and total duration (e.g., "2:30 / 5:45")
+  </Card>
+  <Card title="Playback Speed" icon="gauge">
+    Allow listeners to adjust speed (0.5x, 1x, 1.5x, 2x)
+  </Card>
+</CardGroup>
+
+## Cultural Significance
+
+Audio narration serves critical cultural preservation functions:
+
+### Oral Tradition Preservation
+
+<Info>
+Indigenous stories have been passed down orally for generations. Audio recordings capture not just the words, but the rhythm, tone, and emotion that are integral to the storytelling tradition.
+</Info>
+
+### Benefits of Audio Content
+
+<Steps>
+  <Step title="Authentic Voice">
+    Hearing the narrator's actual voice preserves the personal and cultural authenticity of the storytelling experience.
+  </Step>
+
+  <Step title="Language Learning">
+    Audio recordings help Nahuatl language learners hear proper pronunciation, intonation, and rhythm.
+  </Step>
+
+  <Step title="Accessibility">
+    Audio makes stories accessible to non-readers, elderly community members, and those who prefer oral formats.
+  </Step>
+
+  <Step title="Emotional Connection">
+    The narrator's voice carries emotional nuances that text alone cannot convey, creating stronger connections to cultural heritage.
+  </Step>
+</Steps>
+
+## Recording Best Practices
+
+<Tip>
+For best results, record narrators in quiet environments with minimal background noise. Use a quality microphone if available, or ensure the device's built-in microphone is unobstructed.
+</Tip>
+
+### Technical Recommendations
+
+- **Format**: MP3 for broad compatibility and reasonable file sizes
+- **Bitrate**: 128 kbps minimum for speech (192 kbps recommended)
+- **Sample Rate**: 44.1 kHz standard
+- **Mono vs Stereo**: Mono is sufficient for voice and reduces file size
+
+### Content Recommendations
+
+- Record in the narrator's native language (Nahuatl when possible)
+- Allow the narrator to speak naturally, not reading from text
+- Capture the complete story in one recording when possible
+- Include a brief introduction stating the narrator's name and community
+
+## Future Enhancements
+
+Potential audio feature additions:
+
+<CardGroup cols={2}>
+  <Card title="In-App Recording" icon="microphone-lines">
+    Allow users to record audio directly within the app, rather than requiring pre-recorded files.
+  </Card>
+  <Card title="Multiple Audio Versions" icon="language">
+    Support separate audio tracks for Spanish and Nahuatl versions of the same story.
+  </Card>
+  <Card title="Offline Playback" icon="download">
+    Download audio files for offline listening in areas with limited connectivity.
+  </Card>
+  <Card title="Transcription" icon="closed-captioning">
+    Automatic or manual transcription of audio to improve accessibility and searchability.
+  </Card>
+</CardGroup>
+
+## Integration with Story Workflow
+
+The complete story creation workflow with audio:
+
+```kotlin
+// 1. User selects audio file
+val audioPickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+) { uri: Uri? ->
+    selectedAudioUri = uri
+}
+
+// 2. Upload to Firebase Storage
+val audioUrl = storageRepository.uploadAudio(selectedAudioUri, storyId)
+
+// 3. Create story with audio URL
+val story = Story(
+    id = storyId,
+    titleEs = titleEs,
+    titleNahuatl = titleNahuatl,
+    contentEs = contentEs,
+    contentNahuatl = contentNahuatl,
+    audioUrl = audioUrl,  // URL returned from upload
+    narratorName = narratorName,
+    // ... other fields
+)
+
+// 4. Save story to Firestore
+storyRepository.addStory(story)
+```
+
+This approach ensures audio files are properly uploaded and linked before the story document is created in Firestore.

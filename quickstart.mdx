@@ -1,80 +1,202 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get Casa de Historias running in minutes - from cloning to viewing your first story
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will help you set up Casa de Historias locally and start exploring indigenous legends from the Sierra de Zongolica.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+**Prerequisites**: You'll need Android Studio, JDK 17, and a Firebase project configured with Firestore, Authentication, and Storage.
 </Note>
+
+## Quick Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the Casa de Historias repository to your local machine:
+
+    ```bash
+    git clone https://github.com/joseorteha/app-leyendas.git
+    cd app-leyendas
+    ```
+  </Step>
+
+  <Step title="Set up Firebase">
+    Create a Firebase project and download the `google-services.json` file:
+
+    1. Go to the [Firebase Console](https://console.firebase.google.com)
+    2. Create a new project or select an existing one
+    3. Add an Android app with package name: `com.example.casadehistorias`
+    4. Download `google-services.json`
+    5. Place it in the `app/` directory
+
+    <Warning>
+    The app will not compile without `google-services.json`. Make sure it's in the correct location: `app/google-services.json`
+    </Warning>
+
+    Enable these Firebase services in your console:
+    - **Firestore Database** - For storing stories
+    - **Authentication** - Email/password provider
+    - **Storage** - For audio files and images
+  </Step>
+
+  <Step title="Open in Android Studio">
+    Open the project in Android Studio:
+
+    1. Launch Android Studio
+    2. Select **Open an Existing Project**
+    3. Navigate to the cloned `app-leyendas` folder
+    4. Click **OK**
+
+    Android Studio will automatically sync Gradle dependencies. This may take a few minutes.
+  </Step>
+
+  <Step title="Build and run">
+    Build and run the app on an emulator or physical device:
+
+    1. Wait for Gradle sync to complete
+    2. Select a target device (emulator or connected phone with Android 8.0+)
+    3. Click the **Run** button (green play icon) or press `Shift + F10`
+
+    The app will compile and launch. You'll see the welcome screen with the moon icon and "Casa de Historias" title.
+  </Step>
+
+  <Step title="Create an account">
+    On first launch, you'll need to create an account:
+
+    1. Tap **Descubrir Historias** on the welcome screen
+    2. On the login screen, tap **Crear Cuenta**
+    3. Enter your email and password (minimum 6 characters)
+    4. Tap **Registrarse**
+
+    You'll be automatically signed in and taken to the Discover screen.
+  </Step>
+
+  <Step title="Explore your first story">
+    Browse and view stories:
+
+    1. The **Discover** screen shows featured stories
+    2. Tap on any story card to view full details
+    3. Toggle between Spanish and Nahuatl using the language buttons
+    4. Tap the play button to hear audio narration (if available)
+    5. Use the heart icon to add stories to your favorites
+
+    <Info>
+    If you don't see any stories yet, you'll need to add some through the Firebase Console or by contributing stories through the app's **Add Story** feature.
+    </Info>
+  </Step>
+</Steps>
+
+## Project Structure
+
+Here's what you'll find in the codebase:
+
+```
+app-leyendas/
+├── app/
+│   ├── src/main/java/com/example/casadehistorias/
+│   │   ├── data/              # Data layer (repositories, Firebase, Room)
+│   │   ├── domain/            # Domain models (Story, etc.)
+│   │   ├── ui/                # Jetpack Compose UI screens
+│   │   ├── di/                # Dependency injection modules
+│   │   └── CasaDeHistoriasApp.kt
+│   ├── src/main/res/          # Android resources
+│   └── build.gradle.kts       # App-level build configuration
+├── build.gradle.kts           # Project-level build configuration
+└── settings.gradle.kts
+```
+
+## Key Technologies
+
+Casa de Historias is built with modern Android development tools:
+
+<CardGroup cols={2}>
+  <Card title="Kotlin" icon="code">
+    100% Kotlin codebase with coroutines for async operations
+  </Card>
+  <Card title="Jetpack Compose" icon="mobile">
+    Modern declarative UI with Material Design 3
+  </Card>
+  <Card title="Firebase" icon="fire">
+    Firestore, Authentication, and Storage for backend
+  </Card>
+  <Card title="Hilt" icon="syringe">
+    Dependency injection for clean architecture
+  </Card>
+</CardGroup>
+
+## Development Workflow
+
+Once you have the app running, you can:
+
+1. **Run tests**: `./gradlew test` for unit tests
+2. **Build APK**: `./gradlew assembleDebug`
+3. **View logs**: Use Android Studio's Logcat panel
+4. **Hot reload**: Compose supports live updates while running
+
+<Tip>
+Enable Kotlin compiler warnings in Android Studio to catch potential issues early. Go to **Settings → Build, Execution, Deployment → Compiler → Kotlin Compiler** and enable all warnings.
+</Tip>
+
+## Next Steps
+
+Now that you have Casa de Historias running, explore these guides:
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/development/architecture-overview">
+    Learn about the MVVM architecture and data flow
+  </Card>
+  <Card title="Story Management" icon="book" href="/features/story-management">
+    Understand how stories are created, stored, and displayed
+  </Card>
+  <Card title="Contributing Stories" icon="pen" href="/guides/contributing-stories">
+    Add your own stories to preserve indigenous legends
+  </Card>
+  <Card title="Development Setup" icon="code-branch" href="/contributing/setup">
+    Full development environment configuration
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Build fails with 'google-services.json not found'">
+    Make sure `google-services.json` is placed in the `app/` directory (not the project root). The file should be at:
+    
+    ```
+    app-leyendas/app/google-services.json
+    ```
+
+    If the file is missing, download it from your Firebase Console.
+  </Accordion>
+
+  <Accordion title="Gradle sync fails">
+    Try these steps:
+    
+    1. **File → Invalidate Caches and Restart**
+    2. Delete the `.gradle` folder in your project root
+    3. Run `./gradlew clean build` from terminal
+    4. Restart Android Studio
+  </Accordion>
+
+  <Accordion title="App crashes on launch">
+    Check that:
+    
+    - Your Firebase project has Firestore, Auth, and Storage enabled
+    - The package name in `google-services.json` matches `com.example.casadehistorias`
+    - You're using Android 8.0 (API 26) or higher
+    - Check Logcat for error messages
+  </Accordion>
+
+  <Accordion title="No stories appear in the app">
+    The Firestore database may be empty. You can:
+    
+    1. Add stories manually through the Firebase Console (create a `stories` collection)
+    2. Use the in-app **Add Story** feature (tap the + button)
+    3. Import sample data if you have a JSON export
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+If you encounter issues, check the [Contributing Setup Guide](/contributing/setup) for detailed troubleshooting steps.
+</Warning>

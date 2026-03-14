@@ -1,0 +1,411 @@
+---
+title: Contributing Stories
+description: Share indigenous legends from your community with the world
+icon: pen-to-square
+---
+
+The Add Story screen enables community members to contribute and preserve indigenous legends from the Sierra de Zongolica. Follow this guide to submit your own stories with bilingual content, images, audio, and location data.
+
+## Getting Started
+
+Access the Add Story screen through the main navigation. You'll be presented with a scrollable form divided into two main sections:
+
+<CardGroup cols={2}>
+  <Card title="General Info" icon="circle-info">
+    Basic story details, narrator info, and location
+  </Card>
+  <Card title="Story Content" icon="book-open">
+    The legend text in Spanish and Nahuatl
+  </Card>
+</CardGroup>
+
+## Required vs Optional Fields
+
+<Note>
+  Fields marked with an asterisk (*) are required. The app validates these before allowing submission.
+</Note>
+
+**Required Fields:**
+- Título en Español *
+- Historia en Español *
+- Nombre del Narrador *
+
+**Optional Fields:**
+- Título en Náhuatl
+- Historia en Náhuatl
+- Comunidad de origen
+- Cover photo
+- Map location
+- Audio recording
+
+## Step-by-Step Submission
+
+### Step 1: Add a Cover Photo
+
+The image selector appears at the top of the form:
+
+```kotlin
+val imagePickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+) { uri: Uri? ->
+    selectedImageUri = uri
+}
+
+Box(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(160.dp)
+        .clip(RoundedCornerShape(12.dp))
+        .clickable { imagePickerLauncher.launch("image/*") }
+) {
+    if (selectedImageUri != null) {
+        AsyncImage(
+            model = selectedImageUri,
+            contentDescription = "Imagen seleccionada",
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.AddAPhoto, tint = AguaSagrada)
+            Text("Añadir foto de portada")
+        }
+    }
+}
+```
+
+<Steps>
+  <Step title="Tap the Image Area">
+    Tap the placeholder area showing the camera icon.
+  </Step>
+  
+  <Step title="Select from Gallery">
+    Your device's photo picker will open. Choose an image that represents the story visually.
+  </Step>
+  
+  <Step title="Preview">
+    The selected image will display in the 160dp preview area.
+  </Step>
+</Steps>
+
+<Tip>
+  Choose images that reflect the cultural context or setting of the legend. Landscapes, traditional art, or community photos work well.
+</Tip>
+
+### Step 2: Enter Story Titles
+
+Provide bilingual titles using custom text fields:
+
+```kotlin
+CustomOutlinedTextField(
+    value = titleEs,
+    onValueChange = { titleEs = it; titleError = false },
+    label = "Título en Español *",
+    icon = Icons.Outlined.Edit,
+    isError = titleError
+)
+
+CustomOutlinedTextField(
+    value = titleNahuatl,
+    onValueChange = { titleNahuatl = it },
+    label = "Título en Náhuatl",
+    icon = Icons.Outlined.Edit
+)
+```
+
+**Spanish Title** (Required):
+- Primary title users will see
+- Should be clear and descriptive
+- Example: "La Leyenda del Nahual"
+
+**Nahuatl Title** (Optional):
+- Preserves the indigenous language
+- Displays in italic turquoise text throughout the app
+- Example: "In tlahtolli ipan Nahual"
+
+<Warning>
+  The Spanish title field will show an error state if left blank when attempting to submit. Validation occurs client-side before upload.
+</Warning>
+
+### Step 3: Narrator Information
+
+```kotlin
+CustomOutlinedTextField(
+    value = narratorName,
+    onValueChange = { narratorName = it; narratorError = false },
+    label = "Nombre del Narrador *",
+    icon = Icons.Outlined.Person,
+    isError = narratorError
+)
+
+CustomOutlinedTextField(
+    value = community,
+    onValueChange = { community = it },
+    label = "Comunidad de origen",
+    icon = Icons.Outlined.LocationOn
+)
+```
+
+**Narrator Name** (Required):
+- Who told or remembers this story?
+- Can be the contributor's name or an elder who shared it
+- Example: "Doña María López"
+
+**Community** (Optional):
+- Specific community where the story originates
+- Used for filtering stories by location
+- Example: "Tequila", "Atlahuilco", "Tlaquilpa"
+
+### Step 4: Add Location on Map
+
+Pin the story's location using the interactive MapLibre map:
+
+```kotlin
+val mapView = MapView(context)
+mapView.getMapAsync { map ->
+    map.setStyle(
+        Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")
+    ) {
+        // Set camera to Sierra de Zongolica
+        map.cameraPosition = CameraPosition.Builder()
+            .target(LatLng(18.6667, -97.0000))
+            .zoom(8.0)
+            .build()
+
+        map.addOnMapClickListener { point ->
+            map.clear()
+            map.addMarker(
+                MarkerOptions()
+                    .position(point)
+                    .title("Ubicación de la historia")
+            )
+            selectedLat = point.latitude
+            selectedLng = point.longitude
+            true
+        }
+    }
+}
+```
+
+<Steps>
+  <Step title="View Default Map">
+    The map initially centers on the Sierra de Zongolica region (18.6667, -97.0000) at zoom level 8.
+  </Step>
+  
+  <Step title="Navigate to Location">
+    Pinch to zoom and drag to pan to the specific location where the story takes place.
+  </Step>
+  
+  <Step title="Tap to Pin">
+    Tap once on the map to drop a marker. The coordinates are automatically captured.
+  </Step>
+  
+  <Step title="Adjust if Needed">
+    Tap elsewhere to move the marker to a different location.
+  </Step>
+</Steps>
+
+<Info>
+  The map uses OpenFreeMap tiles with MapLibre GL. Stories with location data appear on the Map Exploration screen.
+</Info>
+
+### Step 5: Write the Story Content
+
+The story content section is separate from general info:
+
+```kotlin
+Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = FondoTarjeta)
+) {
+    Column {
+        Text(
+            "La Historia",
+            style = MaterialTheme.typography.labelLarge,
+            color = AguaSagrada
+        )
+
+        CustomOutlinedTextField(
+            value = contentEs,
+            onValueChange = { contentEs = it; contentError = false },
+            label = "Historia en Español *",
+            icon = Icons.Outlined.Description,
+            modifier = Modifier.heightIn(min = 120.dp),
+            singleLine = false,
+            isError = contentError
+        )
+        
+        CustomOutlinedTextField(
+            value = contentNahuatl,
+            onValueChange = { contentNahuatl = it },
+            label = "Historia en Náhuatl (Opcional)",
+            icon = Icons.Outlined.Description,
+            modifier = Modifier.heightIn(min = 120.dp),
+            singleLine = false
+        )
+    }
+}
+```
+
+**Spanish Content** (Required):
+- The full legend text
+- Multiline text field with minimum 120dp height
+- Write naturally as if telling the story orally
+
+**Nahuatl Content** (Optional):
+- Preserves the story in the indigenous language
+- Helps with language revitalization efforts
+- Can be a full translation or key phrases
+
+<Tip>
+  For longer stories, the text fields expand vertically. Take your time to capture the full legend including important details and cultural context.
+</Tip>
+
+### Step 6: Validation and Submission
+
+Before submitting, the app validates required fields:
+
+```kotlin
+Button(
+    onClick = {
+        titleError = titleEs.isBlank()
+        contentError = contentEs.isBlank()
+        narratorError = narratorName.isBlank()
+
+        if (!titleError && !contentError && !narratorError) {
+            viewModel.addStory(
+                titleEs = titleEs,
+                titleNahuatl = titleNahuatl,
+                contentEs = contentEs,
+                contentNahuatl = contentNahuatl,
+                narratorName = narratorName,
+                community = community,
+                imageUri = selectedImageUri,
+                latitude = selectedLat,
+                longitude = selectedLng
+            )
+        }
+    },
+    enabled = uiState !is AddStoryUiState.Loading
+) {
+    if (uiState is AddStoryUiState.Loading) {
+        CircularProgressIndicator()
+    } else {
+        Text("Publicar Historia")
+    }
+}
+```
+
+<Steps>
+  <Step title="Validation">
+    When you tap "Publicar Historia", the app checks for required fields. Missing fields show red error borders.
+  </Step>
+  
+  <Step title="Upload Process">
+    If validation passes:
+    - Images are uploaded to Firebase Storage
+    - Story data is saved to Firestore
+    - A loading spinner appears in the button
+  </Step>
+  
+  <Step title="Success">
+    Upon successful upload, you're automatically navigated back to the previous screen. The new story appears in the Discover feed.
+  </Step>
+</Steps>
+
+## UI State Handling
+
+The form handles different states:
+
+```kotlin
+val uiState by viewModel.uiState.collectAsState()
+
+LaunchedEffect(uiState) {
+    if (uiState is AddStoryUiState.Success) {
+        viewModel.resetState()
+        onNavigateBack()
+    }
+}
+
+if (uiState is AddStoryUiState.Error) {
+    Text(
+        text = (uiState as AddStoryUiState.Error).message,
+        color = MaterialTheme.colorScheme.error
+    )
+}
+```
+
+**Loading State:**
+- Button shows CircularProgressIndicator
+- Button is disabled to prevent double submission
+- Progress indicator uses `NocheProfunda` color
+
+**Error State:**
+- Error message displays above the submit button
+- Network or validation errors are shown in red
+- User can correct and resubmit
+
+**Success State:**
+- Automatically navigates back
+- State is reset for next submission
+
+## Custom Text Field Component
+
+The form uses a consistent custom text field component:
+
+```kotlin
+@Composable
+fun CustomOutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    isError: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        leadingIcon = { Icon(icon, tint = AguaSagrada) },
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = AguaSagrada,
+            unfocusedBorderColor = TextoSecundario.copy(alpha = 0.3f),
+            errorBorderColor = FloresCeremoniales,
+            cursorColor = AguaSagrada
+        )
+    )
+}
+```
+
+Features:
+- Turquoise icon matching the `AguaSagrada` theme
+- 12dp rounded corners
+- Error state with `FloresCeremoniales` red border
+- Focused state highlights in turquoise
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Write Completely" icon="circle-check">
+    Fill out as many fields as possible, especially Nahuatl translations, to preserve cultural authenticity.
+  </Card>
+  
+  <Card title="Accurate Locations" icon="map-location-dot">
+    Pin the actual geographic location mentioned in the legend for accurate map representation.
+  </Card>
+  
+  <Card title="Quality Images" icon="image">
+    Use high-resolution images that are culturally appropriate and represent the story well.
+  </Card>
+  
+  <Card title="Oral Tradition" icon="comments">
+    Write stories as they were told orally, preserving the natural storytelling voice and style.
+  </Card>
+</CardGroup>
+
+<Warning>
+  Once submitted, stories become part of the public collection. Ensure you have permission to share the legend and any associated images.
+</Warning>

@@ -1,0 +1,500 @@
+---
+title: Nahuatl Dictionary
+description: Learn Nahuatl vocabulary for understanding indigenous stories and preserving language
+icon: book-open-reader
+---
+
+The Nahuatl Dictionary feature provides a searchable reference for learning indigenous vocabulary from the Sierra de Zongolica. It helps users understand Nahuatl words in stories and supports language revitalization efforts.
+
+## Dictionary Overview
+
+<CardGroup cols={2}>
+  <Card title="Bilingual Entries" icon="language">
+    Nahuatl words with Spanish translations
+  </Card>
+  <Card title="Usage Examples" icon="quote-left">
+    Contextual examples showing how words are used
+  </Card>
+  <Card title="Instant Search" icon="magnifying-glass">
+    Filter words as you type in either language
+  </Card>
+  <Card title="Cultural Context" icon="lightbulb">
+    Learn about words' cultural and spiritual significance
+  </Card>
+</CardGroup>
+
+## Accessing the Dictionary
+
+The dictionary can be accessed from multiple places:
+
+1. **Discover Screen**: Large featured card in the "Aprender" section
+2. **Navigation**: Callback handler `onNavigateToDictionary`
+3. **Story Context**: When reading Nahuatl content
+
+### Dictionary Card in Discover
+
+A prominent gradient card invites users to explore the dictionary:
+
+```kotlin
+Card(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(140.dp)
+        .padding(horizontal = 16.dp),
+    shape = RoundedCornerShape(20.dp),
+    colors = CardDefaults.cardColors(containerColor = FondoTarjeta),
+    onClick = onNavigateToDictionary,
+    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            NocheProfunda, 
+                            AguaSagradaOscura.copy(alpha = 0.5f)
+                        )
+                    )
+                )
+        )
+        
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Diccionario Náhuatl",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = LunaLlena
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Aprende palabras de la Sierra y su significado.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSecundario
+                )
+            }
+            
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(AguaSagrada.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.PlayArrow, 
+                    contentDescription = null, 
+                    tint = AguaSagrada
+                )
+            }
+        }
+    }
+}
+```
+
+<Info>
+  The gradient background from `NocheProfunda` to `AguaSagradaOscura` creates a visually distinct learning section, separating it from story content.
+</Info>
+
+## Dictionary Screen UI
+
+### Top Bar
+
+The dictionary screen includes a back button for navigation:
+
+```kotlin
+@Composable
+fun DictionaryScreen(
+    onNavigateBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { 
+                    Text(
+                        "Cultura y Diccionario", 
+                        fontWeight = FontWeight.Bold, 
+                        color = LunaLlena
+                    ) 
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Regresar", 
+                            tint = LunaLlena
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = NocheProfunda
+                )
+            )
+        },
+        containerColor = NocheProfunda
+    ) { padding ->
+        // Dictionary content
+    }
+}
+```
+
+<Note>
+  The title "Cultura y Diccionario" emphasizes that this feature is about cultural learning, not just vocabulary translation.
+</Note>
+
+## Search Functionality
+
+### Real-time Filtering
+
+The search field filters words as you type:
+
+```kotlin
+var searchQuery by remember { mutableStateOf("") }
+
+val dictionary = listOf(
+    NahuatlWord("Tonatiuh", "Sol", "El dador de vida."),
+    NahuatlWord("Metztli", "Luna", "La que brilla en la noche mística."),
+    NahuatlWord("Tlalticpac", "Tierra / Mundo", "Sobre la tierra donde caminamos."),
+    // ... more words
+)
+
+val filteredDictionary = dictionary.filter {
+    it.nahuatl.contains(searchQuery, ignoreCase = true) || 
+    it.spanish.contains(searchQuery, ignoreCase = true)
+}.sortedBy { it.nahuatl }
+```
+
+Key features:
+- **Case-insensitive**: Searches work regardless of capitalization
+- **Bilingual**: Matches in both Nahuatl and Spanish fields
+- **Sorted**: Results are alphabetically sorted by Nahuatl word
+- **Reactive**: Updates instantly as the user types
+
+### Search Field UI
+
+```kotlin
+OutlinedTextField(
+    value = searchQuery,
+    onValueChange = { searchQuery = it },
+    label = { Text("Buscar palabra...") },
+    leadingIcon = { 
+        Icon(
+            Icons.Outlined.Search, 
+            contentDescription = "Buscar", 
+            tint = AguaSagrada
+        ) 
+    },
+    modifier = Modifier.fillMaxWidth(),
+    singleLine = true,
+    shape = RoundedCornerShape(16.dp),
+    colors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = AguaSagrada,
+        unfocusedBorderColor = TextoSecundario.copy(alpha = 0.3f),
+        focusedLabelColor = AguaSagrada,
+        unfocusedLabelColor = TextoSecundario,
+        cursorColor = AguaSagrada,
+        focusedTextColor = LunaLlena,
+        unfocusedTextColor = LunaLlena
+    )
+)
+```
+
+<Tip>
+  Start typing just a few letters to quickly filter the dictionary. For example, type "atl" to find all water-related words.
+</Tip>
+
+### Results Counter
+
+A header shows the number of matching words:
+
+```kotlin
+Text(
+    text = "Palabras Comunes (${filteredDictionary.size})",
+    style = MaterialTheme.typography.titleMedium,
+    color = AguaSagrada,
+    fontWeight = FontWeight.Bold,
+    modifier = Modifier.padding(top = 8.dp)
+)
+```
+
+## Word Data Model
+
+Each dictionary entry uses a simple data class:
+
+```kotlin
+data class NahuatlWord(
+    val nahuatl: String,
+    val spanish: String,
+    val example: String = ""
+)
+```
+
+**Fields:**
+- `nahuatl`: The indigenous word
+- `spanish`: Spanish translation
+- `example`: Optional usage example or cultural context
+
+## Sample Vocabulary
+
+The dictionary includes foundational Nahuatl words:
+
+```kotlin
+val dictionary = listOf(
+    NahuatlWord("Tonatiuh", "Sol", "El dador de vida."),
+    NahuatlWord("Metztli", "Luna", "La que brilla en la noche mística."),
+    NahuatlWord("Tlalticpac", "Tierra / Mundo", "Sobre la tierra donde caminamos."),
+    NahuatlWord("Atl", "Agua", "Agua sagrada que da vida."),
+    NahuatlWord("Ehecatl", "Viento", "El viento que trae las voces."),
+    NahuatlWord("Tletl", "Fuego", "El abuelo fuego."),
+    NahuatlWord("Amoxmatqui", "Lector / Sabio", "Quien conoce el libro."),
+    NahuatlWord("Cintli", "Maíz", "Nuestro sustento."),
+    NahuatlWord("Kuali", "Bueno", "Algo que está bien."),
+    NahuatlWord("Tlazocamati", "Gracias", "Agradecimiento profundo.")
+)
+```
+
+<CardGroup cols={2}>
+  <Card title="Nature Words" icon="leaf">
+    Tonatiuh (Sol), Metztli (Luna), Atl (Agua), Ehecatl (Viento)
+  </Card>
+  <Card title="Cultural Terms" icon="hands-praying">
+    Amoxmatqui (Sabio), Cintli (Maíz), Tletl (Fuego)
+  </Card>
+  <Card title="Common Phrases" icon="comment">
+    Tlazocamati (Gracias), Kuali (Bueno)
+  </Card>
+  <Card title="Cosmology" icon="stars">
+    Tlalticpac (Tierra/Mundo), words with spiritual significance
+  </Card>
+</CardGroup>
+
+## Word Card Component
+
+Each word displays in a styled card:
+
+```kotlin
+@Composable
+fun WordCard(word: NahuatlWord) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = FondoTarjeta),
+        border = BorderStroke(
+            1.dp, 
+            Color.White.copy(alpha = 0.05f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = word.nahuatl,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = AguaSagrada,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = word.spanish,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = LunaLlena,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            if (word.example.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceVariant, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "Ej: ${word.example}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSecundario,
+                        fontStyle = FontStyle.Italic
+                    )
+                }
+            }
+        }
+    }
+}
+```
+
+### Card Layout
+
+<Steps>
+  <Step title="Nahuatl Word (Left)">
+    Bold italic text in `AguaSagrada` turquoise color emphasizes the indigenous language.
+  </Step>
+  
+  <Step title="Spanish Translation (Right)">
+    Medium weight text in `LunaLlena` white provides the translation.
+  </Step>
+  
+  <Step title="Example Box (Below)">
+    If present, a rounded box with `SurfaceVariant` background shows usage context or cultural meaning.
+  </Step>
+</Steps>
+
+<Note>
+  The example text is prefixed with "Ej:" (short for "Ejemplo") to clearly indicate it's demonstrating usage.
+</Note>
+
+## List Display
+
+Words display in a vertically scrollable list:
+
+```kotlin
+LazyColumn(
+    modifier = Modifier.fillMaxSize(),
+    contentPadding = PaddingValues(bottom = 24.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp)
+) {
+    items(filteredDictionary) { word ->
+        WordCard(word)
+    }
+}
+```
+
+- **Spacing**: 12dp between cards for visual clarity
+- **Bottom Padding**: 24dp prevents the last item from being hidden by navigation
+- **Reactive**: List updates automatically when search query changes
+
+## Cultural Significance
+
+The examples provide cultural context beyond simple translation:
+
+<CardGroup cols={2}>
+  <Card title="Tonatiuh - Sol" icon="sun">
+    "El dador de vida" - emphasizes the sun's life-giving role in indigenous cosmology
+  </Card>
+  <Card title="Metztli - Luna" icon="moon">
+    "La que brilla en la noche mística" - highlights the moon's spiritual significance
+  </Card>
+  <Card title="Tletl - Fuego" icon="fire">
+    "El abuelo fuego" - shows the respectful, familial relationship with sacred fire
+  </Card>
+  <Card title="Cintli - Maíz" icon="wheat">
+    "Nuestro sustento" - reflects maíz's central role in indigenous culture and survival
+  </Card>
+</CardGroup>
+
+<Warning>
+  These are simplified entries for the app. Full Nahuatl language learning requires structured courses, native speakers, and cultural immersion.
+</Warning>
+
+## Language Learning Tips
+
+<Steps>
+  <Step title="Start with Common Words">
+    Learn the nature words (Tonatiuh, Metztli, Atl, Ehecatl) that appear frequently in stories.
+  </Step>
+  
+  <Step title="Read Stories Bilingually">
+    Read stories with both Spanish and Nahuatl text to see words in context.
+  </Step>
+  
+  <Step title="Note Cultural Context">
+    Pay attention to the examples that explain cultural and spiritual meanings.
+  </Step>
+  
+  <Step title="Practice Pronunciation">
+    If stories have audio, listen to how indigenous narrators pronounce Nahuatl words.
+  </Step>
+</Steps>
+
+## Expanding the Dictionary
+
+The current implementation uses a static list, but future versions could:
+
+- Load words from Firebase Firestore
+- Allow community contributions
+- Add audio pronunciation
+- Include word categories/tags
+- Support multiple Nahuatl variants
+- Link words to stories where they appear
+
+```kotlin
+// Current: Static list
+val dictionary = listOf(
+    NahuatlWord("Tonatiuh", "Sol", "El dador de vida.")
+)
+
+// Future: Dynamic loading
+val dictionary by viewModel.dictionaryWords.collectAsState()
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Learn Before Reading" icon="graduation-cap">
+    Review key words in the dictionary before reading Nahuatl story content.
+  </Card>
+  
+  <Card title="Use Search Efficiently" icon="magnifying-glass">
+    Type partial words to find related terms (e.g., "tla" finds Tlalticpac, Tlazocamati).
+  </Card>
+  
+  <Card title="Respect the Language" icon="heart">
+    Nahuatl is a living language. Use it respectfully and acknowledge its cultural importance.
+  </Card>
+  
+  <Card title="Share Knowledge" icon="users">
+    Help preserve the language by teaching words to others and contributing stories with Nahuatl content.
+  </Card>
+</CardGroup>
+
+## Technical Implementation
+
+### Data Flow
+
+```
+User Input → searchQuery State
+     ↓
+Filter Function (nahuatl + spanish fields)
+     ↓
+Sorted List → filteredDictionary
+     ↓
+LazyColumn → WordCard Components
+```
+
+### Performance
+
+- **Reactive State**: `remember { mutableStateOf("") }` ensures efficient recomposition
+- **Simple Filtering**: O(n) filter operation is fast even with hundreds of words
+- **Lazy Loading**: `LazyColumn` only renders visible items
+- **No Network**: Static list loads instantly without API calls
+
+<Info>
+  With the current 10-word dictionary, performance is instantaneous. Even with 1000+ words, the filter and sort operations would remain performant on all devices.
+</Info>
+
+## Integration with Stories
+
+The dictionary complements the story content:
+
+1. **Story Titles**: Many stories have Nahuatl titles that users can look up
+2. **Bilingual Content**: Stories with Nahuatl text become more accessible
+3. **Cultural Understanding**: Examples help users grasp the deeper meaning of stories
+4. **Language Preservation**: Encourages contributors to add Nahuatl content
+
+<Tip>
+  When reading a story with a Nahuatl title like "Tonatiuh in Metztli", use the dictionary to understand each word's meaning and cultural significance.
+</Tip>

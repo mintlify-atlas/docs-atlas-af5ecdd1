@@ -1,0 +1,305 @@
+---
+title: Story Management
+description: Learn how to browse, add, edit, and delete indigenous legends in Casa de Historias
+icon: book-open
+---
+
+Casa de Historias provides a comprehensive system for managing indigenous legends from the Sierra de Zongolica region. Community members can contribute, edit, and preserve their cultural stories through an intuitive interface.
+
+## Story Data Model
+
+Each story in the app is represented by the `Story` data class, which captures both Spanish and Nahuatl content:
+
+```kotlin Story.kt:3
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+<Info>
+The Story model is designed to preserve both languages equally, ensuring that indigenous knowledge is maintained in its original form while remaining accessible to Spanish speakers.
+</Info>
+
+## Browsing Stories
+
+The `StoryRepository` provides multiple methods for retrieving stories based on different criteria:
+
+<Steps>
+  <Step title="Get All Stories">
+    Retrieve all available stories using Flow for reactive updates:
+
+    ```kotlin StoryRepository.kt:18
+    fun getAllStoriesFlow(): Flow<List<Story>> =
+        firestoreRepository.getAllStoriesFlow().map { stories ->
+            stories.map { it.toDomainModel() }
+        }
+    ```
+  </Step>
+
+  <Step title="Filter by Community">
+    Find stories from a specific community:
+
+    ```kotlin StoryRepository.kt:31
+    suspend fun getStoriesByCommunity(community: String): List<Story> {
+        return firestoreRepository.getStoriesByCommunity(community).map { it.toDomainModel() }
+    }
+    ```
+  </Step>
+
+  <Step title="Search Stories">
+    Search across story content:
+
+    ```kotlin StoryRepository.kt:48
+    suspend fun searchStories(query: String): List<Story> {
+        return firestoreRepository.searchStories(query).map { it.toDomainModel() }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Adding New Stories
+
+The `AddStoryScreen` provides a comprehensive form for creating new stories. The interface is organized into two main sections:
+
+### General Information Card
+
+This section collects metadata about the story:
+
+```kotlin AddStoryScreen.kt:112
+Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = FondoTarjeta)
+) {
+    Column(
+        modifier = Modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            "Datos Generales",
+            style = MaterialTheme.typography.labelLarge,
+            color = AguaSagrada
+        )
+        
+        // Image picker, title fields, narrator, and community inputs
+        CustomOutlinedTextField(
+            value = titleEs,
+            onValueChange = { titleEs = it; titleError = false },
+            label = "Título en Español *",
+            icon = Icons.Outlined.Edit,
+            isError = titleError
+        )
+        CustomOutlinedTextField(
+            value = titleNahuatl,
+            onValueChange = { titleNahuatl = it },
+            label = "Título en Náhuatl",
+            icon = Icons.Outlined.Edit
+        )
+    }
+}
+```
+
+### Story Content Card
+
+The second card collects the actual story text in both languages:
+
+```kotlin AddStoryScreen.kt:233
+Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = FondoTarjeta)
+) {
+    Column(
+        modifier = Modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            "La Historia",
+            style = MaterialTheme.typography.labelLarge,
+            color = AguaSagrada
+        )
+
+        CustomOutlinedTextField(
+            value = contentEs,
+            onValueChange = { contentEs = it; contentError = false },
+            label = "Historia en Español *",
+            icon = Icons.Outlined.Description,
+            modifier = Modifier.heightIn(min = 120.dp),
+            singleLine = false,
+            isError = contentError
+        )
+        CustomOutlinedTextField(
+            value = contentNahuatl,
+            onValueChange = { contentNahuatl = it },
+            label = "Historia en Náhuatl (Opcional)",
+            icon = Icons.Outlined.Description,
+            modifier = Modifier.heightIn(min = 120.dp),
+            singleLine = false
+        )
+    }
+}
+```
+
+<Note>
+The Spanish title and content are marked as required (*), while Nahuatl fields are optional. This accommodates situations where translations may not be immediately available.
+</Note>
+
+### Publishing Stories
+
+The repository's `addStory` method handles story creation with authentication:
+
+```kotlin StoryRepository.kt:52
+suspend fun addStory(story: Story): String? {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.addStory(storyFirestore)
+    } else null
+}
+```
+
+## Editing Stories
+
+The `EditStoryScreen` allows users to modify their published stories. It pre-populates all fields with existing data:
+
+```kotlin EditStoryScreen.kt:49
+var titleEs by remember { mutableStateOf(story.titleEs) }
+var titleNahuatl by remember { mutableStateOf(story.titleNahuatl) }
+var contentEs by remember { mutableStateOf(story.contentEs) }
+var contentNahuatl by remember { mutableStateOf(story.contentNahuatl) }
+var narratorName by remember { mutableStateOf(story.narratorName) }
+var community by remember { mutableStateOf(story.community) }
+```
+
+Updates are saved through the repository:
+
+```kotlin StoryRepository.kt:60
+suspend fun updateStory(story: Story): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.updateStory(storyFirestore)
+    } else false
+}
+```
+
+## Deleting Stories
+
+Users can delete their own stories through a confirmation dialog:
+
+```kotlin EditStoryScreen.kt:78
+AlertDialog(
+    onDismissRequest = { showDeleteDialog = false },
+    title = { Text("Eliminar Historia", color = LunaLlena) },
+    text = { 
+        Text(
+            "¿Estás seguro de que quieres eliminar esta historia? Esta acción no se puede deshacer.", 
+            color = TextoSecundario
+        ) 
+    },
+    confirmButton = {
+        TextButton(
+            onClick = {
+                storyViewModel.deleteStory(story.id)
+                showDeleteDialog = false
+                onNavigateBack()
+            }
+        ) {
+            Text("Eliminar", color = FloresCeremoniales)
+        }
+    },
+    dismissButton = {
+        TextButton(onClick = { showDeleteDialog = false }) {
+            Text("Cancelar", color = AguaSagrada)
+        }
+    }
+)
+```
+
+<Warning>
+Deletion is permanent and cannot be undone. Users are presented with a confirmation dialog to prevent accidental deletion of cultural content.
+</Warning>
+
+## Viewing Story Details
+
+The `StoryDetailScreen` displays the complete story with all metadata:
+
+```kotlin StoryDetailScreen.kt:132
+Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Text(
+        text = story.titleEs,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        color = LunaLlena,
+        fontSize = 28.sp
+    )
+
+    Text(
+        text = story.titleNahuatl,
+        style = MaterialTheme.typography.titleLarge,
+        fontStyle = FontStyle.Italic,
+        color = AguaSagrada,
+        fontSize = 20.sp
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(imageVector = Icons.Default.Person, contentDescription = null)
+        Text(
+            text = "Narrado por ${story.narratorName}",
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+```
+
+## Repository Pattern
+
+The app uses a repository pattern to abstract data access:
+
+<CardGroup cols={2}>
+  <Card title="StoryRepository" icon="database">
+    Provides a clean API for story operations and manages data transformation between Firestore and domain models.
+  </Card>
+  <Card title="ViewModel Layer" icon="layer-group">
+    StoryViewModel manages UI state and coordinates repository calls with lifecycle-aware data streams.
+  </Card>
+</CardGroup>
+
+```kotlin StoryViewModel.kt:37
+private fun loadStories() {
+    viewModelScope.launch {
+        _isLoading.value = true
+        _errorMessage.value = null
+        repository.getAllStoriesFlow()
+            .catch { e ->
+                Log.e("StoryViewModel", "Error cargando historias: ${e.message}")
+                _errorMessage.value = "Error al cargar historias: ${e.message}"
+                _isLoading.value = false
+            }
+            .collect { storyList ->
+                _stories.value = storyList
+                _isLoading.value = false
+            }
+    }
+}
+```
+
+<Tip>
+The repository pattern allows for easy testing and future data source changes (e.g., adding offline caching) without modifying UI code.
+</Tip>

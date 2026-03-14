@@ -1,0 +1,355 @@
+---
+title: Installation
+description: Install Casa de Historias on your Android device
+---
+
+# Installing Casa de Historias
+
+This guide will help you install the Casa de Historias app on your Android device. The app allows you to explore indigenous legends from Sierra de Zongolica in both Spanish and Nahuatl.
+
+<Info>
+  This guide is for end users. Developers should see the [Quickstart Guide](/quickstart) for setting up a development environment.
+</Info>
+
+## System Requirements
+
+Before installing, verify your device meets these requirements:
+
+<Card title="Android Version" icon="android">
+  Android 8.0 (Oreo) or higher (API level 26+)
+</Card>
+
+<CardGroup cols={2}>
+  <Card title="Storage Space" icon="hard-drive">
+    At least 100 MB of free storage for the app and cached content
+  </Card>
+  
+  <Card title="Internet Connection" icon="wifi">
+    Required for downloading stories, images, and audio files
+  </Card>
+</CardGroup>
+
+<Tip>
+  The app works offline once stories are downloaded and cached locally.
+</Tip>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Download the APK">
+    Download the latest Casa de Historias APK file:
+
+    <Card title="Download Casa de Historias v1.0" icon="download" href="#">
+      Get the latest stable release (APK)
+    </Card>
+
+    The APK file will download to your device's **Downloads** folder.
+
+    <Note>
+      The app is currently distributed as an APK file. A Google Play Store release is planned for the future.
+    </Note>
+  </Step>
+
+  <Step title="Enable installation from unknown sources">
+    Since the app is not yet on the Google Play Store, you need to allow installation from other sources:
+
+    ### Android 8.0 - 10
+
+    1. Open **Settings**
+    2. Navigate to **Security & Privacy**
+    3. Enable **Install unknown apps**
+    4. Select your browser or file manager
+    5. Enable **Allow from this source**
+
+    ### Android 11+
+
+    1. When prompted to install, tap **Settings**
+    2. Enable **Allow from this source**
+    3. Return to the installation
+
+    <Warning>
+      Only install APK files from trusted sources. Always verify you're downloading the official Casa de Historias APK.
+    </Warning>
+  </Step>
+
+  <Step title="Install the app">
+    Locate and install the APK:
+
+    1. Open your **File Manager** or **Downloads** app
+    2. Navigate to the **Downloads** folder
+    3. Tap **casa-de-historias-v1.0.apk**
+    4. Review the permissions requested:
+       - **Internet** - Download stories and media
+       - **Storage** - Cache content for offline access
+       - **Location** (optional) - View stories on the map
+    5. Tap **Install**
+    6. Wait for installation to complete
+    7. Tap **Open**
+
+    <Info>
+      Installation typically takes 10-30 seconds depending on your device.
+    </Info>
+  </Step>
+
+  <Step title="Create your account">
+    When you first open the app, you'll see the welcome screen:
+
+    1. Tap **Crear cuenta** (Create account)
+    2. Enter your email address
+    3. Create a secure password (minimum 6 characters)
+    4. Tap **Registrarse** (Sign up)
+
+    <Tip>
+      Your account allows you to save favorite stories, contribute new legends, and sync your data across devices.
+    </Tip>
+
+    Already have an account? Tap **Iniciar sesión** to log in instead.
+  </Step>
+
+  <Step title="Start exploring stories">
+    After creating your account, you'll land on the **Explorar** (Discover) screen.
+
+    Here you can:
+
+    - Browse **Lo más nuevo** - Recently added stories
+    - Listen to **Con Audio Original** - Stories with voice narrations
+    - Access **Diccionario Náhuatl** - Learn Nahuatl words
+    - Filter **Por Comunidad** - Stories by their community of origin
+
+    Tap any story card to read the full legend in Spanish and Nahuatl.
+  </Step>
+</Steps>
+
+## Using the App
+
+### Navigation
+
+The app has five main sections accessible via the bottom navigation bar:
+
+<Steps>
+  <Step title="Explorar (Discover)">
+    Your home screen featuring:
+    - Recently published stories
+    - Stories with audio recordings
+    - Access to the Nahuatl dictionary
+    - Community-based browsing
+
+    <CodeGroup>
+    ```kotlin MainActivity.kt
+    // The app launches with the Discover screen
+    val startDestination = if (authViewModel.isLoggedIn) {
+        Screen.Discover.route
+    } else {
+        Screen.Welcome.route
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Leyendas (Stories)">
+    Browse the complete catalog of published legends with:
+    - Search functionality
+    - Filtering by tags and communities
+    - Sorting options
+  </Step>
+
+  <Step title="Mapa (Map)">
+    Explore stories on an interactive map of Sierra de Zongolica:
+    - See where stories originated
+    - Tap markers to read stories from specific locations
+    - Discover legends from nearby communities
+
+    <Info>
+      Location permissions are optional. The map will still show story locations, but won't center on your current position without permission.
+    </Info>
+  </Step>
+
+  <Step title="Favoritos (Favorites)">
+    Quick access to stories you've saved:
+    - Tap the heart icon on any story to add to favorites
+    - Access your collection offline
+    - Remove stories by tapping the heart again
+  </Step>
+
+  <Step title="Perfil (Profile)">
+    Manage your account and settings:
+    - View stories you've contributed
+    - Edit your profile information
+    - Access app settings
+    - Sign out
+  </Step>
+</Steps>
+
+### Reading Stories
+
+When you open a story, you'll see:
+
+<CardGroup cols={2}>
+  <Card title="Bilingual Text" icon="language">
+    Switch between Spanish and Nahuatl versions using the language toggle.
+  </Card>
+  
+  <Card title="Audio Playback" icon="circle-play">
+    Listen to the narrator's voice recording (when available).
+  </Card>
+  
+  <Card title="Story Details" icon="info-circle">
+    View the narrator's name, community, and tags.
+  </Card>
+  
+  <Card title="Location" icon="location-dot">
+    See the story's origin on the map.
+  </Card>
+</CardGroup>
+
+### Contributing Your Own Stories
+
+Help preserve indigenous legends by adding stories:
+
+1. Tap the **+** button in the bottom navigation
+2. Fill in the story details:
+   - Title in Spanish and Nahuatl
+   - Full text in both languages
+   - Narrator's name
+   - Community of origin
+   - Tags for categorization
+3. Optionally add:
+   - An image
+   - Audio recording of the narration
+   - Geographic coordinates
+4. Tap **Publicar** to share your story
+
+<Warning>
+  Stories are reviewed before being published to ensure quality and appropriateness.
+</Warning>
+
+## Offline Access
+
+Casa de Historias uses local caching to enable offline reading:
+
+- Stories you've viewed are cached automatically
+- Favorites are always available offline
+- Audio files download when you first play them
+- Images cache when stories are opened
+
+<Tip>
+  To prepare for offline use, open the stories you want to read before losing internet connection.
+</Tip>
+
+## Permissions Explained
+
+The app requests these permissions:
+
+| Permission | Required | Purpose |
+|------------|----------|----------|
+| **Internet** | Yes | Download stories, images, and audio from Firebase |
+| **Storage** | Yes | Cache content for offline access |
+| **Camera** | No | Take photos when adding stories |
+| **Microphone** | No | Record audio narrations |
+| **Location** | No | Show your position on the story map |
+
+<Info>
+  You can revoke permissions at any time in your device's app settings.
+</Info>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Installation blocked or failed">
+    **Solution:**
+    1. Verify you've enabled installation from unknown sources
+    2. Ensure you have enough storage space (at least 100 MB)
+    3. Try downloading the APK again in case it was corrupted
+    4. Restart your device and attempt installation again
+  </Accordion>
+
+  <Accordion title="App crashes on startup">
+    **Solution:**
+    1. Clear the app's cache: Settings > Apps > Casa de Historias > Clear Cache
+    2. Ensure you're running Android 8.0 or higher
+    3. Uninstall and reinstall the app
+    4. Report the issue with your device model and Android version
+  </Accordion>
+
+  <Accordion title="Can't sign up or log in">
+    **Solution:**
+    1. Check your internet connection
+    2. Verify your email format is correct
+    3. Ensure password is at least 6 characters
+    4. Try resetting your password if you have an existing account
+  </Accordion>
+
+  <Accordion title="Stories not loading">
+    **Solution:**
+    1. Verify internet connection is active
+    2. Pull down to refresh the story list
+    3. Clear app cache and try again
+    4. Check if Firebase services are operational
+  </Accordion>
+
+  <Accordion title="Audio not playing">
+    **Solution:**
+    1. Check device volume is not muted
+    2. Ensure story has an audio file (look for play button)
+    3. Try downloading the story again
+    4. Verify you have a stable internet connection for streaming
+  </Accordion>
+
+  <Accordion title="Images not displaying">
+    **Solution:**
+    1. Check internet connection for downloading images
+    2. Clear image cache: Settings > Apps > Casa de Historias > Clear Cache
+    3. Some stories may not have images - this is normal
+  </Accordion>
+</AccordionGroup>
+
+## Updating the App
+
+When a new version is released:
+
+1. Download the new APK file
+2. Tap to install (you don't need to uninstall the old version)
+3. The app will update while preserving your data
+4. Your favorites and cached stories will remain intact
+
+<Note>
+  You'll be notified in-app when updates are available.
+</Note>
+
+## Privacy & Data
+
+Casa de Historias respects your privacy:
+
+- Your email is only used for authentication
+- Stories you contribute are attributed to your account
+- Favorites and reading history are stored locally
+- No personal data is shared with third parties
+- All data syncs through secure Firebase services
+
+## Getting Help
+
+Need assistance?
+
+<CardGroup cols={2}>
+  <Card title="Community Forum" icon="comments" href="#">
+    Ask questions and connect with other users
+  </Card>
+  
+  <Card title="Report an Issue" icon="bug" href="#">
+    Submit bug reports and feature requests
+  </Card>
+  
+  <Card title="Email Support" icon="envelope" href="mailto:support@casadehistorias.org">
+    Contact the development team directly
+  </Card>
+  
+  <Card title="Documentation" icon="book" href="/introduction">
+    Learn more about the app and its features
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Card title="Read the Introduction" icon="book-open" href="/introduction">
+  Learn about Casa de Historias' mission to preserve indigenous legends and understand the core concepts of Stories, Communities, and Narrators.
+</Card>

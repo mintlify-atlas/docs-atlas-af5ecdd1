@@ -1,0 +1,296 @@
+---
+title: Discovering Stories
+description: Browse and explore indigenous legends from the Sierra de Zongolica
+icon: compass
+---
+
+The Discover screen is your gateway to exploring the rich collection of indigenous legends from the Sierra de Zongolica. Navigate through curated sections to find stories by recency, audio availability, community, and more.
+
+## Overview
+
+The Discover screen provides multiple ways to explore stories:
+
+<CardGroup cols={2}>
+  <Card title="Recent Stories" icon="clock">
+    Browse the newest legends added to the collection
+  </Card>
+  <Card title="Audio Stories" icon="microphone">
+    Discover stories with original audio recordings
+  </Card>
+  <Card title="By Community" icon="map-pin">
+    Filter stories by their community of origin
+  </Card>
+  <Card title="Dictionary Access" icon="book">
+    Quick access to the Nahuatl-Spanish dictionary
+  </Card>
+</CardGroup>
+
+## Story Discovery Features
+
+### Recent Stories Section
+
+The "Lo más nuevo" section displays the 5 most recently added stories in a horizontal scrollable card layout:
+
+```kotlin
+val recentStories = stories.sortedByDescending { it.createdAt }.take(5)
+
+LazyRow(
+    contentPadding = PaddingValues(horizontal = 16.dp),
+    horizontalArrangement = Arrangement.spacedBy(16.dp)
+) {
+    items(recentStories) { story ->
+        FeaturedStoryCard(
+            story = story, 
+            onClick = { onStoryClick(story.id) }
+        )
+    }
+}
+```
+
+Each featured card shows:
+- Story image (if available)
+- Nahuatl title in italic turquoise text
+- Spanish title in bold
+- Narrator name with icon
+
+### Stories with Audio
+
+The "Con Audio Original" section highlights stories that include audio recordings from community narrators:
+
+```kotlin
+val audioStories = stories.filter { !it.audioUrl.isNullOrBlank() }.take(5)
+
+Column(
+    modifier = Modifier.padding(horizontal = 16.dp),
+    verticalArrangement = Arrangement.spacedBy(16.dp)
+) {
+    audioStories.forEach { story ->
+        CompactStoryCard(
+            story = story, 
+            onClick = { onStoryClick(story.id) }
+        )
+    }
+}
+```
+
+<Note>
+  Stories with audio feature a play button overlay on the thumbnail, indicating they contain original audio recordings from indigenous narrators.
+</Note>
+
+### Community Filters
+
+The "Por Comunidad" section provides filter chips for browsing stories by their community of origin:
+
+```kotlin
+val communities = stories
+    .map { it.community }
+    .filter { it.isNotBlank() }
+    .distinct()
+    .take(10)
+
+LazyRow(
+    contentPadding = PaddingValues(horizontal = 16.dp),
+    horizontalArrangement = Arrangement.spacedBy(8.dp)
+) {
+    items(communities) { community ->
+        FilterChip(
+            selected = false,
+            onClick = onNavigateToStoryList,
+            label = { Text(community) }
+        )
+    }
+}
+```
+
+## Navigating to Story Details
+
+### Opening a Story
+
+Tap any story card to view its full details:
+
+<Steps>
+  <Step title="Select a Story">
+    Tap on any story card in the Discover screen. The card will respond with visual feedback.
+  </Step>
+  
+  <Step title="View Full Content">
+    The app navigates to the Story Detail screen where you can:
+    - Read the complete story in Spanish and Nahuatl
+    - Play audio recordings (if available)
+    - View the location on a map
+    - Add the story to your favorites
+  </Step>
+  
+  <Step title="Return to Discover">
+    Use the back button to return to the Discover screen and continue exploring.
+  </Step>
+</Steps>
+
+### Dictionary Access
+
+The Discover screen features a prominent dictionary card for language learning:
+
+```kotlin
+Card(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(140.dp)
+        .padding(horizontal = 16.dp),
+    onClick = onNavigateToDictionary
+) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text("Diccionario Náhuatl")
+            Text("Aprende palabras de la Sierra y su significado.")
+        }
+    }
+}
+```
+
+<Tip>
+  The dictionary card features a gradient background from `NocheProfunda` to `AguaSagradaOscura`, making it visually distinct from story cards.
+</Tip>
+
+## UI Components
+
+### Featured Story Card
+
+The large featured card (260x320dp) is used for recent stories and includes:
+
+```kotlin
+@Composable
+fun FeaturedStoryCard(story: Story, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.width(260.dp).height(320.dp),
+        shape = RoundedCornerShape(24.dp),
+        onClick = onClick
+    ) {
+        // Image with gradient overlay
+        AsyncImage(
+            model = story.imageUrl,
+            contentScale = ContentScale.Crop
+        )
+        
+        // Story information overlay
+        Column(verticalArrangement = Arrangement.Bottom) {
+            if (story.titleNahuatl.isNotBlank()) {
+                Text(
+                    text = story.titleNahuatl,
+                    fontStyle = FontStyle.Italic,
+                    color = AguaSagrada
+                )
+            }
+            Text(
+                text = story.titleEs,
+                fontWeight = FontWeight.Bold,
+                color = LunaLlena
+            )
+            Row {
+                Icon(Icons.Outlined.Person)
+                Text(story.narratorName)
+            }
+        }
+    }
+}
+```
+
+### Compact Story Card
+
+The compact horizontal card (100dp height) is used for audio stories:
+
+```kotlin
+@Composable
+fun CompactStoryCard(story: Story, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().height(100.dp),
+        onClick = onClick
+    ) {
+        Row {
+            // Thumbnail with audio indicator
+            Box(modifier = Modifier.width(100.dp)) {
+                AsyncImage(model = story.imageUrl)
+                if (!story.audioUrl.isNullOrBlank()) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.PlayArrow)
+                    }
+                }
+            }
+            
+            // Story titles
+            Column {
+                Text(story.titleEs, fontWeight = FontWeight.Bold)
+                if (story.titleNahuatl.isNotBlank()) {
+                    Text(
+                        story.titleNahuatl, 
+                        fontStyle = FontStyle.Italic,
+                        color = AguaSagrada
+                    )
+                }
+            }
+        }
+    }
+}
+```
+
+## Loading States
+
+<Info>
+  While stories are being fetched from Firebase, a centered circular progress indicator appears with the `AguaSagrada` color theme.
+</Info>
+
+```kotlin
+val isLoading by viewModel.isLoading.collectAsState()
+
+if (isLoading) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(color = AguaSagrada)
+    }
+}
+```
+
+## Empty States
+
+When sections have no content, helpful messages guide users:
+
+```kotlin
+@Composable
+fun EmptyStateMessage(message: String) {
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = TextoSecundario,
+        modifier = Modifier.padding(horizontal = 16.dp)
+    )
+}
+```
+
+Common empty state messages:
+- "No hay historias nuevas." (Recent section)
+- "Aún no hay audios grabados." (Audio section)
+- "No hay comunidades registradas." (Community section)
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Explore Regularly" icon="rotate">
+    New stories are added frequently by community members. Check the "Lo más nuevo" section often.
+  </Card>
+  
+  <Card title="Try Audio Stories" icon="headphones">
+    Audio recordings preserve the authentic voice and storytelling style of indigenous narrators.
+  </Card>
+  
+  <Card title="Learn the Language" icon="graduation-cap">
+    Use the dictionary feature to understand Nahuatl words in the stories.
+  </Card>
+  
+  <Card title="Browse by Community" icon="users">
+    Each community has unique legends and storytelling traditions worth exploring.
+  </Card>
+</CardGroup>

@@ -1,0 +1,491 @@
+---
+title: User Authentication
+description: Learn how Casa de Historias manages user accounts and authentication with Firebase
+icon: user-lock
+---
+
+Casa de Historias uses Firebase Authentication to manage user accounts, ensuring that community members can contribute stories while maintaining accountability and security.
+
+## Authentication Architecture
+
+The app implements a repository pattern for authentication:
+
+```kotlin AuthRepository.kt:16
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) {
+    val currentUser: FirebaseUser? get() = auth.currentUser
+
+    val authState: Flow<FirebaseUser?> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            trySend(auth.currentUser)
+        }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }
+}
+```
+
+<Info>
+The repository exposes both a synchronous `currentUser` property for immediate access and a reactive `authState` Flow for observing authentication changes throughout the app lifecycle.
+</Info>
+
+## Sign Up Flow
+
+New users register with email, password, display name, and optional community information:
+
+### Sign Up Method
+
+```kotlin AuthRepository.kt:41
+suspend fun createUserWithEmailAndPassword(
+    email: String, 
+    password: String,
+    displayName: String,
+    community: String
+): Result<FirebaseUser?> {
+    return try {
+        val result = auth.createUserWithEmailAndPassword(email, password).await()
+        result.user?.let { user ->
+            createUserProfile(user.uid, email, displayName, community)
+        }
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+### User Profile Creation
+
+When a new account is created, a corresponding user profile document is created in Firestore:
+
+```kotlin AuthRepository.kt:83
+private suspend fun createUserProfile(
+    userId: String, 
+    email: String, 
+    displayName: String,
+    community: String
+) {
+    val profile = UserProfile(
+        id = userId,
+        email = email,
+        displayName = displayName,
+        community = community,
+        createdAt = Timestamp.now(),
+        lastLogin = Timestamp.now()
+    )
+    firestore.collection("users").document(userId).set(profile).await()
+}
+```
+
+<Steps>
+  <Step title="Firebase Authentication">
+    User account is created in Firebase Auth with email and password
+  </Step>
+
+  <Step title="User Profile Document">
+    Additional user data (name, community) is stored in Firestore under `users/{userId}`
+  </Step>
+
+  <Step title="Timestamp Recording">
+    Creation time and last login are recorded for analytics and user management
+  </Step>
+</Steps>
+
+## Sign Up UI
+
+The `SignUpScreen` provides a form for new user registration:
+
+```kotlin SignUpScreen.kt:128
+OutlinedTextField(
+    value = displayName,
+    onValueChange = { displayName = it; nameError = null },
+    label = { Text("Nombre completo") },
+    leadingIcon = { Icon(Icons.Default.Person, null, tint = AguaSagrada) },
+    isError = nameError != null,
+    supportingText = { nameError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
+    modifier = Modifier.fillMaxWidth(),
+    singleLine = true,
+    shape = RoundedCornerShape(16.dp),
+    colors = signUpFieldColors()
+)
+```
+
+### Form Fields
+
+<CardGroup cols={2}>
+  <Card title="Full Name" icon="user">
+    Required field for the user's display name
+  </Card>
+  <Card title="Email Address" icon="envelope">
+    Required, validated for proper email format
+  </Card>
+  <Card title="Community" icon="map-pin">
+    Optional field identifying the user's home community
+  </Card>
+  <Card title="Password" icon="lock">
+    Required, minimum 6 characters with confirmation field
+  </Card>
+</CardGroup>
+
+### Community Field
+
+```kotlin SignUpScreen.kt:159
+OutlinedTextField(
+    value = community,
+    onValueChange = { community = it },
+    label = { Text("Comunidad de origen (opcional)") },
+    leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = AguaSagrada) },
+    modifier = Modifier.fillMaxWidth(),
+    singleLine = true,
+    shape = RoundedCornerShape(16.dp),
+    colors = signUpFieldColors()
+)
+```
+
+<Note>
+The community field helps identify which villages are contributing stories and can be used for future community-based features or analytics.
+</Note>
+
+### Validation Logic
+
+```kotlin SignUpScreen.kt:52
+fun validate(): Boolean {
+    var valid = true
+    emailError = null; passwordError = null; confirmError = null; nameError = null
+
+    if (displayName.isBlank()) {
+        nameError = "El nombre es obligatorio"
+        valid = false
+    }
+    if (email.isBlank()) {
+        emailError = "El correo es obligatorio"
+        valid = false
+    } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        emailError = "Ingresa un correo válido"
+        valid = false
+    }
+    if (password.length < 6) {
+        passwordError = "Mínimo 6 caracteres"
+        valid = false
+    }
+    if (password != confirmPassword) {
+        confirmError = "Las contraseñas no coinciden"
+        valid = false
+    }
+    return valid
+}
+```
+
+### Registration Button
+
+```kotlin SignUpScreen.kt:237
+Button(
+    onClick = {
+        if (validate()) {
+            authViewModel.signUp(email, password, displayName, community)
+        }
+    },
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(56.dp),
+    shape = RoundedCornerShape(16.dp),
+    colors = ButtonDefaults.buttonColors(
+        containerColor = AguaSagrada,
+        contentColor = NocheProfunda
+    ),
+    enabled = authState !is AuthState.Loading
+) {
+    if (authState is AuthState.Loading) {
+        CircularProgressIndicator(
+            color = NocheProfunda,
+            modifier = Modifier.size(24.dp)
+        )
+    } else {
+        Text(
+            "Crear Cuenta",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+```
+
+## Sign In Flow
+
+Existing users sign in with email and password:
+
+```kotlin AuthRepository.kt:31
+suspend fun signInWithEmailAndPassword(email: String, password: String): Result<FirebaseUser?> {
+    return try {
+        val result = auth.signInWithEmailAndPassword(email, password).await()
+        updateLastLogin(result.user?.uid)
+        Result.success(result.user)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+```
+
+### Last Login Tracking
+
+```kotlin AuthRepository.kt:100
+private suspend fun updateLastLogin(userId: String?) {
+    userId?.let {
+        firestore.collection("users")
+            .document(it)
+            .update("lastLogin", Timestamp.now())
+            .await()
+    }
+}
+```
+
+<Tip>
+Tracking last login helps identify active users and can be used for engagement analytics or to prompt inactive users to contribute new stories.
+</Tip>
+
+## Login UI
+
+The `LoginScreen` provides a streamlined sign-in interface:
+
+```kotlin LoginScreen.kt:106
+OutlinedTextField(
+    value = email,
+    onValueChange = {
+        email = it
+        emailError = null
+    },
+    label = { Text("Correo electrónico") },
+    leadingIcon = {
+        Icon(Icons.Default.Email, contentDescription = null, tint = AguaSagrada)
+    },
+    isError = emailError != null,
+    supportingText = {
+        emailError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+    },
+    modifier = Modifier.fillMaxWidth(),
+    singleLine = true,
+    shape = RoundedCornerShape(16.dp),
+    colors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = AguaSagrada,
+        unfocusedBorderColor = TextoSecundario.copy(alpha = 0.3f),
+        errorBorderColor = FloresCeremoniales,
+        focusedLabelColor = AguaSagrada,
+        unfocusedLabelColor = TextoSecundario,
+        cursorColor = AguaSagrada,
+        focusedTextColor = LunaLlena,
+        unfocusedTextColor = LunaLlena
+    )
+)
+```
+
+### Password Field with Visibility Toggle
+
+```kotlin LoginScreen.kt:140
+OutlinedTextField(
+    value = password,
+    onValueChange = {
+        password = it
+        passwordError = null
+    },
+    label = { Text("Contraseña") },
+    leadingIcon = {
+        Icon(Icons.Default.Lock, contentDescription = null, tint = AguaSagrada)
+    },
+    trailingIcon = {
+        IconButton(onClick = { showPassword = !showPassword }) {
+            Icon(
+                imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                contentDescription = if (showPassword) "Ocultar" else "Mostrar",
+                tint = TextoSecundario
+            )
+        }
+    },
+    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+    // ... additional properties
+)
+```
+
+### Error Display
+
+```kotlin LoginScreen.kt:184
+if (authState is AuthState.Error) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = FloresCeremoniales.copy(alpha = 0.15f)
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = (authState as AuthState.Error).message,
+            color = FloresCeremoniales,
+            modifier = Modifier.padding(12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+```
+
+## Sign Out
+
+Users can sign out, clearing their session:
+
+```kotlin AuthRepository.kt:58
+suspend fun signOut() {
+    auth.signOut()
+}
+```
+
+<Warning>
+Signing out is immediate and does not require confirmation. Consider adding a confirmation dialog for production use to prevent accidental sign-outs.
+</Warning>
+
+## Integration with Story Management
+
+Authentication is tightly integrated with story operations:
+
+### Author Attribution
+
+Every story is linked to its author:
+
+```kotlin StoryRepository.kt:52
+suspend fun addStory(story: Story): String? {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.addStory(storyFirestore)
+    } else null
+}
+```
+
+### User's Stories
+
+Users can retrieve their own contributions:
+
+```kotlin StoryRepository.kt:39
+suspend fun getMyStories(): List<Story> {
+    val currentUser = authRepository.currentUser ?: return emptyList()
+    return getStoriesByAuthor(currentUser.uid)
+}
+```
+
+### Permission Checks
+
+All write operations require authentication:
+
+```kotlin StoryRepository.kt:60
+suspend fun updateStory(story: Story): Boolean {
+    val currentUser = authRepository.currentUser
+    return if (currentUser != null) {
+        val storyFirestore = story.toFirestoreModel(currentUser.uid)
+        firestoreRepository.updateStory(storyFirestore)
+    } else false
+}
+```
+
+<Info>
+This pattern ensures that all stories are attributed to their contributors and that operations are properly authorized.
+</Info>
+
+## Auth State Management
+
+The app uses a ViewModel to manage authentication state:
+
+### Auth States
+
+```kotlin
+sealed class AuthState {
+    object Unauthenticated : AuthState()
+    object Loading : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+```
+
+### Reactive UI Updates
+
+```kotlin LoginScreen.kt:39
+val authState by authViewModel.authState.collectAsState()
+
+LaunchedEffect(authState) {
+    if (authState is AuthState.Authenticated) {
+        onLoginSuccess()
+    }
+}
+```
+
+This ensures the UI automatically responds to authentication changes, navigating to the appropriate screen when login succeeds.
+
+## User Profile Management
+
+Retrieve and update user profiles:
+
+```kotlin AuthRepository.kt:62
+suspend fun getUserProfile(userId: String): UserProfile? {
+    return try {
+        val document = firestore.collection("users").document(userId).get().await()
+        document.toObject(UserProfile::class.java)
+    } catch (e: Exception) {
+        null
+    }
+}
+
+suspend fun updateUserProfile(userId: String, profile: UserProfile): Boolean {
+    return try {
+        firestore.collection("users")
+            .document(userId)
+            .set(profile.copy(id = userId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+## Security Considerations
+
+<Steps>
+  <Step title="Password Requirements">
+    Minimum 6 characters enforced (Firebase default). Consider increasing to 8+ for production.
+  </Step>
+
+  <Step title="Email Verification">
+    Currently not implemented but recommended for production to prevent fake accounts.
+  </Step>
+
+  <Step title="Firestore Security Rules">
+    Ensure Firestore rules restrict story editing to the original author:
+    ```
+    match /stories/{storyId} {
+      allow update, delete: if request.auth.uid == resource.data.authorId;
+    }
+    ```
+  </Step>
+
+  <Step title="Rate Limiting">
+    Consider implementing rate limits on story creation to prevent spam.
+  </Step>
+</Steps>
+
+## Future Authentication Features
+
+<CardGroup cols={2}>
+  <Card title="Password Reset" icon="key">
+    Email-based password recovery for users who forget their credentials.
+  </Card>
+  <Card title="Email Verification" icon="envelope-circle-check">
+    Require users to verify email addresses before contributing stories.
+  </Card>
+  <Card title="Social Login" icon="users">
+    Optional Google or Facebook authentication for easier sign-up.
+  </Card>
+  <Card title="Profile Pictures" icon="camera">
+    Allow users to upload profile photos to personalize their contributions.
+  </Card>
+</CardGroup>

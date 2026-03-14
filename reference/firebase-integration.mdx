@@ -1,0 +1,338 @@
+---
+title: 'Firebase Integration'
+description: 'Cloud storage, authentication, and real-time database for Casa de Historias'
+icon: 'fire'
+---
+
+## Overview
+
+Casa de Historias uses three core Firebase services to enable cloud synchronization, user authentication, and media storage:
+
+- **Firebase Firestore**: NoSQL database for storing stories and user profiles
+- **Firebase Authentication**: Email/password authentication for user accounts
+- **Firebase Storage**: Cloud storage for audio recordings and images
+
+## Configuration
+
+### google-services.json
+
+The Firebase SDK is configured using `google-services.json` in your app's root directory:
+
+```
+app/
+  ├── build.gradle
+  └── google-services.json  // Firebase configuration file
+```
+
+<Warning>
+  Never commit `google-services.json` to version control. Add it to `.gitignore` and manage it through secure configuration management.
+</Warning>
+
+## Firestore Repository
+
+The `FirestoreRepository` class provides all Firestore database operations for managing stories.
+
+### Repository Structure
+
+```kotlin data/firebase/FirestoreRepository.kt
+@Singleton
+class FirestoreRepository @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
+    // Real-time and query methods
+}
+```
+
+### Collection Structure
+
+```
+Firestore Database
+├── stories/
+│   ├── {storyId}/
+│   │   ├── id: String
+│   │   ├── titleEs: String
+│   │   ├── titleNahuatl: String
+│   │   ├── contentEs: String
+│   │   ├── contentNahuatl: String
+│   │   ├── audioUrl: String?
+│   │   ├── imageUrl: String?
+│   │   ├── narratorName: String
+│   │   ├── community: String
+│   │   ├── latitude: Double?
+│   │   ├── longitude: Double?
+│   │   ├── authorId: String
+│   │   ├── tags: List<String>
+│   │   ├── published: Boolean
+│   │   ├── createdAt: Timestamp
+│   │   └── updatedAt: Timestamp
+└── users/
+    ├── {userId}/
+    │   ├── id: String
+    │   ├── email: String
+    │   ├── displayName: String
+    │   ├── community: String
+    │   ├── favoriteStories: List<String>
+    │   ├── createdAt: Timestamp
+    │   └── lastLogin: Timestamp
+```
+
+## Key Methods
+
+### Real-time Story Stream
+
+```kotlin
+fun getAllStoriesFlow(): Flow<List<StoryFirestore>> = callbackFlow {
+    val listener = firestore.collection("stories")
+        .whereEqualTo("published", true)
+        .orderBy("createdAt", Query.Direction.DESCENDING)
+        .addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+
+            val stories = snapshot?.documents?.mapNotNull { doc ->
+                doc.toObject(StoryFirestore::class.java)
+            } ?: emptyList()
+
+            trySend(stories)
+        }
+
+    awaitClose { listener.remove() }
+}
+```
+
+<Info>
+  This method returns a Kotlin Flow that automatically updates when stories are added, modified, or deleted in Firestore. Perfect for reactive UI updates.
+</Info>
+
+### Query Stories by Community
+
+```kotlin
+suspend fun getStoriesByCommunity(community: String): List<StoryFirestore> {
+    return try {
+        val snapshot = firestore.collection("stories")
+            .whereEqualTo("community", community)
+            .whereEqualTo("published", true)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+
+        snapshot.documents.mapNotNull { doc ->
+            doc.toObject(StoryFirestore::class.java)
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+### Add New Story
+
+```kotlin
+suspend fun addStory(story: StoryFirestore): String? {
+    return try {
+        val documentRef = firestore.collection("stories").document()
+        val storyWithId = story.copy(
+            id = documentRef.id,
+            createdAt = Timestamp.now(),
+            updatedAt = Timestamp.now()
+        )
+        documentRef.set(storyWithId).await()
+        documentRef.id
+    } catch (e: Exception) {
+        null
+    }
+}
+```
+
+### Search Stories
+
+```kotlin
+suspend fun searchStories(query: String): List<StoryFirestore> {
+    return try {
+        val snapshot = firestore.collection("stories")
+            .whereEqualTo("published", true)
+            .get()
+            .await()
+
+        val allStories = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(StoryFirestore::class.java)
+        }
+
+        val lowerQuery = query.lowercase()
+        allStories.filter { story ->
+            story.titleEs.lowercase().contains(lowerQuery) ||
+            story.titleNahuatl.lowercase().contains(lowerQuery) ||
+            story.narratorName.lowercase().contains(lowerQuery) ||
+            story.community.lowercase().contains(lowerQuery) ||
+            story.tags.any { it.lowercase().contains(lowerQuery) }
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+<Note>
+  Firestore doesn't natively support full-text search, so the search method fetches all stories and filters client-side. For production apps with many stories, consider integrating Algolia or Elasticsearch.
+</Note>
+
+### Manage Favorites
+
+```kotlin
+suspend fun addToFavorites(userId: String, storyId: String): Boolean {
+    return try {
+        firestore.collection("users").document(userId)
+            .update("favoriteStories", FieldValue.arrayUnion(storyId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+
+suspend fun removeFromFavorites(userId: String, storyId: String): Boolean {
+    return try {
+        firestore.collection("users").document(userId)
+            .update("favoriteStories", FieldValue.arrayRemove(storyId))
+            .await()
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+```
+
+## Authentication Repository
+
+The `AuthRepository` manages user authentication and profile creation.
+
+```kotlin data/firebase/AuthRepository.kt
+@Singleton
+class AuthRepository @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) {
+    val currentUser: FirebaseUser? get() = auth.currentUser
+
+    suspend fun signInWithEmailAndPassword(
+        email: String, 
+        password: String
+    ): Result<FirebaseUser?> {
+        return try {
+            val result = auth.signInWithEmailAndPassword(email, password).await()
+            updateLastLogin(result.user?.uid)
+            Result.success(result.user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createUserWithEmailAndPassword(
+        email: String, 
+        password: String,
+        displayName: String,
+        community: String
+    ): Result<FirebaseUser?> {
+        return try {
+            val result = auth.createUserWithEmailAndPassword(email, password).await()
+            result.user?.let { user ->
+                createUserProfile(user.uid, email, displayName, community)
+            }
+            Result.success(result.user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+```
+
+## Storage Repository
+
+The `StorageRepository` handles media file uploads to Firebase Storage.
+
+```kotlin data/firebase/StorageRepository.kt
+@Singleton
+class StorageRepository @Inject constructor(
+    private val storage: FirebaseStorage
+) {
+    suspend fun uploadImage(uri: Uri, storyId: String): String? {
+        return try {
+            val ref = storage.reference.child("stories/$storyId/cover.jpg")
+            ref.putFile(uri).await()
+            ref.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun uploadAudio(uri: Uri, storyId: String): String? {
+        return try {
+            val ref = storage.reference.child("stories/$storyId/audio.mp3")
+            ref.putFile(uri).await()
+            ref.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+```
+
+### Storage Structure
+
+```
+Firebase Storage
+└── stories/
+    └── {storyId}/
+        ├── cover.jpg    // Story cover image
+        └── audio.mp3    // Narration recording
+```
+
+## Security Considerations
+
+<Warning>
+  **Firestore Security Rules**: Ensure proper security rules are configured in the Firebase Console to restrict write access to authenticated users and read access based on the `published` field.
+</Warning>
+
+### Example Security Rules
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /stories/{storyId} {
+      allow read: if resource.data.published == true;
+      allow write: if request.auth != null && 
+                      request.auth.uid == resource.data.authorId;
+    }
+    
+    match /users/{userId} {
+      allow read, write: if request.auth != null && 
+                            request.auth.uid == userId;
+    }
+  }
+}
+```
+
+## Dependency Injection
+
+Firebase instances are provided via Hilt modules:
+
+```kotlin di/FirebaseModule.kt
+@Module
+@InstallIn(SingletonComponent::class)
+object FirebaseModule {
+    @Provides
+    @Singleton
+    fun provideFirestore(): FirebaseFirestore = Firebase.firestore
+
+    @Provides
+    @Singleton
+    fun provideAuth(): FirebaseAuth = Firebase.auth
+
+    @Provides
+    @Singleton
+    fun provideStorage(): FirebaseStorage = Firebase.storage
+}
+```

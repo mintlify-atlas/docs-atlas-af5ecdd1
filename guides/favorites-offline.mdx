@@ -1,0 +1,381 @@
+---
+title: Favorites & Offline Access
+description: Save stories for offline reading using Room database persistence
+icon: heart
+---
+
+The Favorites system in Casa de Historias allows users to bookmark stories for quick access and offline reading. Stories are cached locally using Room database, ensuring they remain available even without an internet connection.
+
+## How Favorites Work
+
+<CardGroup cols={2}>
+  <Card title="Cloud Sync" icon="cloud">
+    Favorite IDs are stored in Firebase Firestore user profiles
+  </Card>
+  <Card title="Local Cache" icon="database">
+    Story content is cached in Room database for offline access
+  </Card>
+  <Card title="Quick Access" icon="bolt">
+    Dedicated Favorites screen for instant access to saved stories
+  </Card>
+  <Card title="Automatic Updates" icon="arrows-rotate">
+    Syncs favorites across devices when signed in
+  </Card>
+</CardGroup>
+
+## Adding Stories to Favorites
+
+### From Story Detail Screen
+
+Users can favorite stories by tapping the heart icon in the Story Detail screen. The FavoritesViewModel manages the toggle functionality:
+
+```kotlin
+fun toggleFavorite(storyId: String) {
+    viewModelScope.launch {
+        val isFav = _favoriteIds.value.contains(storyId)
+        if (isFav) {
+            storyRepository.removeFromFavorites(storyId)
+            _favoriteIds.value = _favoriteIds.value - storyId
+            _favorites.value = _favorites.value.filter { it.id != storyId }
+        } else {
+            storyRepository.addToFavorites(storyId)
+            _favoriteIds.value = _favoriteIds.value + storyId
+            val story = storyRepository.getStoryById(storyId)
+            if (story != null) {
+                _favorites.value = _favorites.value + story
+            }
+        }
+    }
+}
+```
+
+<Steps>
+  <Step title="Check Current State">
+    The ViewModel checks if the story ID exists in the user's favorites set.
+  </Step>
+  
+  <Step title="Update Firebase">
+    Adds or removes the story ID from the user's Firestore profile.
+  </Step>
+  
+  <Step title="Update Local State">
+    Updates the StateFlow collections so the UI reflects the change immediately.
+  </Step>
+  
+  <Step title="Cache Story Data">
+    If adding to favorites, fetches the full story data and adds it to the local cache.
+  </Step>
+</Steps>
+
+### Checking Favorite Status
+
+The ViewModel provides a simple method to check if a story is favorited:
+
+```kotlin
+fun isFavorite(storyId: String): Boolean {
+    return _favoriteIds.value.contains(storyId)
+}
+```
+
+This is used to show the filled vs outlined heart icon in the UI.
+
+## Viewing Your Favorites
+
+The Favorites screen displays all bookmarked stories:
+
+```kotlin
+@Composable
+fun FavoritesScreen(
+    viewModel: FavoritesViewModel,
+    onStoryClick: (String) -> Unit
+) {
+    val favorites by viewModel.favorites.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadFavorites()
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Mis Favoritos",
+                        fontWeight = FontWeight.Bold,
+                        color = LunaLlena
+                    )
+                }
+            )
+        }
+    ) { padding ->
+        // Content based on state
+    }
+}
+```
+
+### Loading State
+
+While favorites are being fetched:
+
+```kotlin
+when {
+    isLoading -> {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = AguaSagrada)
+        }
+    }
+    // ...
+}
+```
+
+<Info>
+  The loading state appears briefly when the screen opens as it loads favorite IDs from Firebase and fetches corresponding story data.
+</Info>
+
+### Empty State
+
+When no favorites exist, a friendly empty state is shown:
+
+```kotlin
+favorites.isEmpty() -> {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("❤️", fontSize = 64.sp)
+            Text(
+                "Aún no tienes favoritos",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = LunaLlena
+            )
+            Text(
+                "Explora las historias y marca\ntus favoritas con el corazón",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSecundario,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+```
+
+The empty state guides users to:
+1. Explore stories in the Discover screen
+2. Tap the heart icon on stories they like
+3. Return to the Favorites screen to see them saved
+
+### Favorites List
+
+When favorites exist, they display in a vertical scrollable list:
+
+```kotlin
+else -> {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(favorites) { story ->
+            ModernStoryCard(
+                story = story,
+                onClick = { onStoryClick(story.id) }
+            )
+        }
+    }
+}
+```
+
+<Note>
+  The `ModernStoryCard` component displays each story with its image, titles, narrator, and community information in a consistent card layout.
+</Note>
+
+## Room Database Architecture
+
+Story data is persisted locally using Room for offline access:
+
+### Story Entity
+
+```kotlin
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+### Story DAO
+
+The Data Access Object defines database operations:
+
+```kotlin
+@Dao
+interface StoryDao {
+    @Query("SELECT * FROM stories")
+    fun getAllStories(): Flow<List<StoryEntity>>
+
+    @Query("SELECT * FROM stories WHERE id = :id")
+    suspend fun getStoryById(id: String): StoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStories(stories: List<StoryEntity>)
+
+    @Delete
+    suspend fun deleteStory(story: StoryEntity)
+}
+```
+
+Key features:
+- `Flow<List<StoryEntity>>` for reactive updates
+- `REPLACE` conflict strategy for updating existing stories
+- Suspend functions for coroutine-based async operations
+
+## Data Loading Strategy
+
+The FavoritesViewModel loads favorites in a specific sequence:
+
+```kotlin
+fun loadFavorites() {
+    viewModelScope.launch {
+        _isLoading.value = true
+        val user = authRepository.currentUser
+        if (user != null) {
+            // 1. Get favorite IDs from Firestore user profile
+            val profile = authRepository.getUserProfile(user.uid)
+            val ids = profile?.favoriteStories ?: emptyList()
+            _favoriteIds.value = ids.toSet()
+            
+            // 2. Fetch story data (from cache or Firebase)
+            if (ids.isNotEmpty()) {
+                _favorites.value = storyRepository.getStoriesByIds(ids)
+            } else {
+                _favorites.value = emptyList()
+            }
+        }
+        _isLoading.value = false
+    }
+}
+```
+
+<Steps>
+  <Step title="Check Authentication">
+    Verifies the user is signed in to access their profile data.
+  </Step>
+  
+  <Step title="Load Favorite IDs">
+    Retrieves the list of favorited story IDs from the user's Firestore profile.
+  </Step>
+  
+  <Step title="Fetch Story Content">
+    Uses the repository to get full story data. The repository first checks the Room cache, then fetches from Firebase if needed.
+  </Step>
+  
+  <Step title="Update UI State">
+    Sets the loading flag to false and updates the StateFlow with the loaded favorites.
+  </Step>
+</Steps>
+
+## Offline Access
+
+### How It Works
+
+Stories are automatically cached in Room when:
+1. User views a story detail page
+2. User adds a story to favorites
+3. The app syncs recent stories in the background
+
+When offline:
+- Favorited stories remain fully accessible from the Room database
+- Images may not load if not previously cached
+- Audio files play if previously downloaded
+
+<Warning>
+  While story text and metadata are always available offline, images and audio depend on device caching. For best offline experience, view stories while online first.
+</Warning>
+
+### Cache Strategy
+
+```kotlin
+@Insert(onConflict = OnConflictStrategy.REPLACE)
+suspend fun insertStories(stories: List<StoryEntity>)
+```
+
+The `REPLACE` strategy ensures:
+- Stories are updated if content changes
+- No duplicate entries
+- Latest version is always cached
+
+## State Management
+
+The ViewModel uses Kotlin StateFlow for reactive state:
+
+```kotlin
+private val _favorites = MutableStateFlow<List<Story>>(emptyList())
+val favorites: StateFlow<List<Story>> = _favorites.asStateFlow()
+
+private val _favoriteIds = MutableStateFlow<Set<String>>(emptySet())
+val favoriteIds: StateFlow<Set<String>> = _favoriteIds.asStateFlow()
+
+private val _isLoading = MutableStateFlow(true)
+val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+```
+
+Benefits:
+- UI automatically updates when data changes
+- Separation of mutable vs exposed state
+- Type-safe state management
+- Lifecycle-aware with `collectAsState()` in Composables
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Favorite While Online" icon="wifi">
+    Add stories to favorites while connected to ensure full content is cached, including images and audio.
+  </Card>
+  
+  <Card title="Sync Regularly" icon="rotate">
+    Open the app with internet periodically to sync favorites across devices and get content updates.
+  </Card>
+  
+  <Card title="Manage Storage" icon="hard-drive">
+    Unfavorite stories you no longer need to free up device storage space.
+  </Card>
+  
+  <Card title="Pre-load for Travel" icon="plane">
+    Favorite stories before traveling to areas with poor connectivity to ensure offline access.
+  </Card>
+</CardGroup>
+
+## Removing Favorites
+
+To remove a story from favorites:
+
+1. Open the story from the Favorites screen
+2. Tap the filled heart icon in the detail screen
+3. The story is removed from your favorites list
+4. The story data remains in the app's general cache
+
+<Info>
+  Removing a favorite doesn't delete the story from the app entirely—it just removes it from your personal collection. The story remains accessible through Discover and Search.
+</Info>

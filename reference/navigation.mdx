@@ -1,0 +1,349 @@
+---
+title: 'Navigation'
+description: 'Screen navigation and routing with Jetpack Compose Navigation'
+icon: 'route'
+---
+
+## Overview
+
+Casa de Historias uses Jetpack Compose Navigation to manage app navigation. The `NavGraph` composable defines all routes and screen transitions with type-safe argument passing.
+
+## Screen Routes
+
+All app screens are defined as a sealed class for type safety:
+
+```kotlin ui/navigation/NavGraph.kt
+sealed class Screen(val route: String) {
+    object Welcome : Screen("welcome")
+    object Discover : Screen("discover")
+    object Dictionary : Screen("dictionary")
+    object Login : Screen("login")
+    object SignUp : Screen("signup")
+    object StoryList : Screen("story_list")
+    object AddStory : Screen("add_story")
+    object StoryMap : Screen("story_map")
+    object Favorites : Screen("favorites")
+    object Profile : Screen("profile")
+    object Search : Screen("search")
+    object Settings : Screen("settings")
+    
+    object StoryDetail : Screen("story_detail/{storyId}") {
+        fun createRoute(storyId: String) = "story_detail/$storyId"
+    }
+    
+    object EditStory : Screen("edit_story/{storyId}") {
+        fun createRoute(storyId: String) = "edit_story/$storyId"
+    }
+}
+```
+
+### Route Categories
+
+<ResponseField name="Authentication Screens">
+  - **Welcome**: Onboarding screen shown on first launch
+  - **Login**: Email/password authentication
+  - **SignUp**: New user registration with community selection
+</ResponseField>
+
+<ResponseField name="Main Screens">
+  - **Discover**: Featured stories and community exploration
+  - **StoryList**: Browse all published legends
+  - **Favorites**: User's bookmarked stories
+  - **Search**: Search stories by title, narrator, or community
+  - **Dictionary**: Nahuatl-Spanish translation reference
+  - **StoryMap**: Geographic visualization of story locations
+</ResponseField>
+
+<ResponseField name="Story Management">
+  - **AddStory**: Form to contribute new legends
+  - **StoryDetail**: Read full story with audio playback
+  - **EditStory**: Modify existing story (author only)
+</ResponseField>
+
+<ResponseField name="User Features">
+  - **Profile**: User account information and contributed stories
+  - **Settings**: App preferences and configuration
+</ResponseField>
+
+## Navigation Graph
+
+The `NavGraph` composable is the root navigation component:
+
+```kotlin
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    startDestination: String
+) {
+    val storyViewModel: StoryViewModel = hiltViewModel()
+    val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        // Route definitions...
+    }
+}
+```
+
+<ParamField path="navController" type="NavHostController" required>
+  Navigation controller instance that manages the back stack and screen transitions.
+</ParamField>
+
+<ParamField path="authViewModel" type="AuthViewModel" required>
+  Shared authentication ViewModel used across login, signup, and profile screens.
+</ParamField>
+
+<ParamField path="startDestination" type="String" required>
+  Initial route to display. Typically `Screen.Welcome.route` for new users or `Screen.StoryList.route` for authenticated users.
+</ParamField>
+
+## Navigation Examples
+
+### Simple Navigation
+
+Navigate to a screen without arguments:
+
+```kotlin
+Button(
+    onClick = {
+        navController.navigate(Screen.Dictionary.route)
+    }
+) {
+    Text("Open Dictionary")
+}
+```
+
+### Navigation with Pop Behavior
+
+Clear the back stack after successful login:
+
+```kotlin
+composable(Screen.Login.route) {
+    LoginScreen(
+        onLoginSuccess = {
+            navController.navigate(Screen.StoryList.route) {
+                // Remove all previous screens from back stack
+                popUpTo(0) { inclusive = true }
+            }
+        },
+        onNavigateToSignUp = {
+            navController.navigate(Screen.SignUp.route)
+        }
+    )
+}
+```
+
+<Info>
+  Using `popUpTo(0) { inclusive = true }` prevents users from pressing back to return to the login screen after authentication.
+</Info>
+
+### Passing Arguments
+
+Navigate to a detail screen with a story ID:
+
+```kotlin
+// Navigate to story detail
+StoryCard(
+    story = story,
+    onClick = {
+        navController.navigate(Screen.StoryDetail.createRoute(story.id))
+    }
+)
+```
+
+### Receiving Arguments
+
+Extract arguments in the destination composable:
+
+```kotlin
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    val storyId = backStackEntry.arguments?.getString("storyId") ?: ""
+    
+    // Use storyId to fetch story data
+    val stories by storyViewModel.stories.collectAsState()
+    val story = stories.find { it.id == storyId }
+    
+    LaunchedEffect(storyId) {
+        if (story == null) {
+            storyViewModel.loadStoryById(storyId)
+        }
+    }
+    
+    val selectedStory by storyViewModel.selectedStory.collectAsState()
+    val displayStory = story ?: selectedStory
+    
+    if (displayStory != null) {
+        StoryDetailScreen(
+            story = displayStory,
+            onNavigateBack = { navController.popBackStack() }
+        )
+    }
+}
+```
+
+## Navigation Patterns
+
+### Back Navigation
+
+```kotlin
+IconButton(
+    onClick = { navController.popBackStack() }
+) {
+    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+}
+```
+
+### Conditional Navigation
+
+Route users based on authentication state:
+
+```kotlin
+val authState by authViewModel.authState.collectAsState()
+
+val startDestination = when (authState) {
+    is AuthState.Authenticated -> Screen.StoryList.route
+    else -> Screen.Welcome.route
+}
+
+NavGraph(
+    navController = navController,
+    authViewModel = authViewModel,
+    startDestination = startDestination
+)
+```
+
+### Replace and Clear Stack
+
+Replace the entire navigation stack:
+
+```kotlin
+Button(
+    onClick = {
+        navController.navigate(Screen.Login.route) {
+            popUpTo(Screen.Welcome.route) { inclusive = true }
+        }
+    }
+) {
+    Text("Continue to Login")
+}
+```
+
+## Deep Linking
+
+Casa de Historias can handle deep links to specific stories:
+
+```kotlin
+composable(
+    route = Screen.StoryDetail.route,
+    arguments = listOf(
+        navArgument("storyId") { type = NavType.StringType }
+    ),
+    deepLinks = listOf(
+        navDeepLink {
+            uriPattern = "casadehistorias://story/{storyId}"
+        }
+    )
+) { backStackEntry ->
+    // Handle story detail
+}
+```
+
+### Handling Deep Links in MainActivity
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        setContent {
+            CasaDeHistoriasTheme {
+                val navController = rememberNavController()
+                NavGraph(navController = navController, ...)
+            }
+        }
+    }
+}
+```
+
+## Bottom Navigation Integration
+
+Combine with bottom navigation bar:
+
+```kotlin
+@Composable
+fun MainContainer() {
+    val navController = rememberNavController()
+    
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                    label = { Text("Discover") },
+                    selected = currentRoute == Screen.Discover.route,
+                    onClick = { navController.navigate(Screen.Discover.route) }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Favorite, contentDescription = null) },
+                    label = { Text("Favorites") },
+                    selected = currentRoute == Screen.Favorites.route,
+                    onClick = { navController.navigate(Screen.Favorites.route) }
+                )
+                // More items...
+            }
+        }
+    ) { paddingValues ->
+        NavGraph(
+            navController = navController,
+            startDestination = Screen.Discover.route
+        )
+    }
+}
+```
+
+## Navigation Testing
+
+<Note>
+  Test navigation logic by verifying NavController interactions:
+  
+  ```kotlin
+  @Test
+  fun testStoryCardNavigation() {
+      val navController = TestNavHostController(context)
+      
+      composeTestRule.setContent {
+          NavGraph(navController = navController, ...)
+      }
+      
+      // Click story card
+      composeTestRule.onNodeWithText("La Leyenda...").performClick()
+      
+      // Verify navigation
+      assertEquals(
+          "story_detail/abc123",
+          navController.currentBackStackEntry?.destination?.route
+      )
+  }
+  ```
+</Note>
+
+## Best Practices
+
+<Warning>
+  Avoid creating new `NavController` instances inside composable functions. Always use `rememberNavController()` at the top level and pass it down.
+</Warning>
+
+- Use sealed classes for type-safe route definitions
+- Create helper functions like `createRoute(id: String)` for parameterized routes
+- Clear authentication screens from back stack after successful login
+- Handle null arguments gracefully with fallback values
+- Use `LaunchedEffect` to load data based on navigation arguments
+- Test navigation flows with `TestNavHostController`

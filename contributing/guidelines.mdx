@@ -1,0 +1,392 @@
+---
+title: 'Contribution Guidelines'
+description: 'Best practices and standards for contributing to Casa de Historias'
+icon: 'book-open'
+---
+
+## Code Style
+
+Casa de Historias follows official Kotlin coding conventions. The project is configured to use the official style:
+
+```properties
+# From gradle.properties
+kotlin.code.style=official
+```
+
+### Kotlin Conventions
+
+<Steps>
+  <Step title="Naming Conventions">
+    - **Classes & Objects**: PascalCase (`StoryViewModel`, `AuthRepository`)
+    - **Functions & Variables**: camelCase (`getUserStories`, `currentUser`)
+    - **Constants**: UPPER_SNAKE_CASE (`MAX_TITLE_LENGTH`)
+    - **Composables**: PascalCase (`StoryDetailScreen`, `StoryCard`)
+  </Step>
+  
+  <Step title="File Organization">
+    Each Kotlin file should contain a single public class or related composables:
+    
+    ```kotlin
+    // Good: StoryViewModel.kt
+    package com.example.casadehistorias.ui.story
+    
+    import androidx.lifecycle.ViewModel
+    import dagger.hilt.android.lifecycle.HiltViewModel
+    import javax.inject.Inject
+    
+    @HiltViewModel
+    class StoryViewModel @Inject constructor(
+        private val repository: StoryRepository
+    ) : ViewModel() {
+        // Implementation
+    }
+    ```
+  </Step>
+  
+  <Step title="Use Data Classes for Models">
+    Follow the project pattern for domain models:
+    
+    ```kotlin
+    // From domain/model/Story.kt
+    data class Story(
+        val id: String,
+        val titleEs: String,
+        val titleNahuatl: String,
+        val contentEs: String,
+        val contentNahuatl: String,
+        val audioUrl: String?,
+        val imageUrl: String?,
+        val narratorName: String,
+        val community: String,
+        val latitude: Double? = null,
+        val longitude: Double? = null,
+        val authorId: String = "",
+        val tags: List<String> = emptyList(),
+        val createdAt: Long = 0L
+    )
+    ```
+    
+    <Note>
+    Always provide default values for optional fields to maintain backward compatibility.
+    </Note>
+  </Step>
+  
+  <Step title="Dependency Injection with Hilt">
+    Use Hilt for dependency injection. Mark application class with `@HiltAndroidApp`:
+    
+    ```kotlin
+    // From CasaDeHistoriasApp.kt
+    @HiltAndroidApp
+    class CasaDeHistoriasApp : Application()
+    ```
+    
+    Activities with `@AndroidEntryPoint`:
+    
+    ```kotlin
+    // From MainActivity.kt
+    @AndroidEntryPoint
+    class MainActivity : ComponentActivity() {
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            enableEdgeToEdge()
+            setContent {
+                CasaDeHistoriasTheme {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        MainContainer()
+                    }
+                }
+            }
+        }
+    }
+    ```
+    
+    ViewModels with `@HiltViewModel`:
+    
+    ```kotlin
+    @HiltViewModel
+    class StoryViewModel @Inject constructor(
+        private val repository: StoryRepository
+    ) : ViewModel()
+    ```
+  </Step>
+</Steps>
+
+### Compose UI Guidelines
+
+- Use Material 3 components from `androidx.compose.material3`
+- Extract reusable UI components into separate composables
+- Use `Modifier` parameters for customization
+- Follow the single source of truth principle for state
+
+```kotlin
+@Composable
+fun StoryCard(
+    story: Story,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier
+    ) {
+        // Card content
+    }
+}
+```
+
+## Bilingual Content Requirements
+
+<Warning>
+This is a critical requirement for Casa de Historias. All user-facing content must be available in both Spanish and Nahuatl.
+</Warning>
+
+### Always Provide Both Languages
+
+When working with story content or any user-generated text:
+
+```kotlin
+// CORRECT: Both languages provided
+data class Story(
+    val titleEs: String,          // Spanish title
+    val titleNahuatl: String,     // Nahuatl title
+    val contentEs: String,        // Spanish content
+    val contentNahuatl: String    // Nahuatl content
+)
+
+// INCORRECT: Single language only
+data class Story(
+    val title: String,    // Don't do this!
+    val content: String
+)
+```
+
+### Language Naming Convention
+
+- Spanish fields: suffix with `Es` (e.g., `titleEs`, `descriptionEs`)
+- Nahuatl fields: suffix with `Nahuatl` (e.g., `titleNahuatl`, `descriptionNahuatl`)
+
+### UI String Resources
+
+For app UI strings (buttons, labels, etc.), provide translations in `strings.xml`:
+
+```xml
+<!-- res/values/strings.xml (Spanish) -->
+<resources>
+    <string name="app_name">Casa de Historias</string>
+    <string name="add_story">Agregar Historia</string>
+</resources>
+
+<!-- res/values-nah/strings.xml (Nahuatl) -->
+<resources>
+    <string name="app_name">Casa de Historias</string>
+    <string name="add_story">Tiktlajtoli ipan</string>
+</resources>
+```
+
+## Cultural Sensitivity
+
+When working with indigenous content:
+
+<Card title="Respectful Practices" icon="heart">
+  - **Consult native speakers** for Nahuatl translations when possible
+  - **Preserve original meaning** rather than literal translation
+  - **Respect storytelling traditions** of Sierra de Zongolica communities
+  - **Use appropriate terminology** for cultural concepts
+  - **Credit narrators and communities** properly in all story entries
+</Card>
+
+<Info>
+When in doubt about cultural or linguistic accuracy, flag the issue in your pull request for review by community members.
+</Info>
+
+## Git Workflow
+
+### Branch Naming
+
+Use descriptive branch names with prefixes:
+
+```bash
+# Feature branches
+feature/audio-playback-controls
+feature/story-search-filters
+
+# Bug fixes
+fix/firebase-auth-crash
+fix/map-location-null-check
+
+# Documentation
+docs/contributing-guide
+docs/api-documentation
+
+# Refactoring
+refactor/repository-layer
+refactor/compose-navigation
+```
+
+### Commit Message Format
+
+Follow the conventional commits specification:
+
+```bash
+# Feature
+feat: add offline story caching with Room
+feat(map): implement story location clustering
+
+# Bug fix
+fix: resolve crash when audio URL is null
+fix(auth): handle Firebase network timeout
+
+# Documentation
+docs: update setup instructions for Firebase
+docs(readme): add bilingual content guidelines
+
+# Refactor
+refactor: extract story card into reusable component
+refactor(di): migrate from Dagger to Hilt
+
+# Tests
+test: add unit tests for StoryRepository
+test(ui): add compose tests for StoryDetailScreen
+```
+
+**Format:**
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Build process, dependencies, etc.
+
+## Pull Request Process
+
+<Steps>
+  <Step title="Create a Feature Branch">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+  
+  <Step title="Make Your Changes">
+    - Write clean, documented code
+    - Follow the style guidelines above
+    - Add tests for new functionality
+    - Ensure bilingual content requirements are met
+  </Step>
+  
+  <Step title="Test Your Changes">
+    Run all tests before submitting:
+    
+    ```bash
+    # Unit tests
+    ./gradlew test
+    
+    # Instrumented tests
+    ./gradlew connectedAndroidTest
+    ```
+    
+    See the [Testing Guide](/contributing/testing) for details.
+  </Step>
+  
+  <Step title="Commit Your Changes">
+    ```bash
+    git add .
+    git commit -m "feat: add story sharing functionality"
+    ```
+  </Step>
+  
+  <Step title="Push to Your Fork">
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+  
+  <Step title="Create a Pull Request">
+    1. Go to the repository on GitHub
+    2. Click **New Pull Request**
+    3. Select your branch
+    4. Fill out the PR template:
+       - **Title**: Clear, descriptive summary
+       - **Description**: What changes you made and why
+       - **Testing**: How you tested the changes
+       - **Screenshots**: For UI changes
+       - **Checklist**: Confirm all requirements met
+  </Step>
+  
+  <Step title="Code Review">
+    - Address feedback from reviewers
+    - Make requested changes
+    - Push updates to the same branch
+    - Request re-review when ready
+  </Step>
+  
+  <Step title="Merge">
+    Once approved, a maintainer will merge your PR.
+  </Step>
+</Steps>
+
+## Pull Request Checklist
+
+Before submitting, ensure:
+
+- [ ] Code follows Kotlin official style guidelines
+- [ ] All new code has appropriate unit tests
+- [ ] Bilingual content provided (Spanish and Nahuatl)
+- [ ] UI tested on both phone and tablet layouts
+- [ ] No hardcoded strings (use string resources)
+- [ ] Firebase security rules considered
+- [ ] Cultural sensitivity guidelines followed
+- [ ] Documentation updated if needed
+- [ ] Commit messages follow conventional format
+- [ ] No `google-services.json` or secrets committed
+
+## Code Review Standards
+
+Reviewers will check for:
+
+<CardGroup cols={2}>
+  <Card title="Functionality" icon="check">
+    - Code works as intended
+    - No breaking changes
+    - Edge cases handled
+  </Card>
+  
+  <Card title="Code Quality" icon="code">
+    - Follows Kotlin conventions
+    - Well-structured and readable
+    - Properly documented
+  </Card>
+  
+  <Card title="Testing" icon="flask">
+    - Adequate test coverage
+    - Tests pass consistently
+    - No flaky tests
+  </Card>
+  
+  <Card title="Cultural Standards" icon="globe">
+    - Bilingual content present
+    - Respectful terminology
+    - Community attribution
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+If you need assistance:
+
+- **Questions**: Open a GitHub Discussion
+- **Bugs**: Create an issue with reproduction steps
+- **Features**: Propose in an issue first for discussion
+- **Security**: Email security@casadehistorias.org (do not open public issues)
+
+<Tip>
+New contributors are welcome! Look for issues tagged with `good-first-issue` to get started.
+</Tip>

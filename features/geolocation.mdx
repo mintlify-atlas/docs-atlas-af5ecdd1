@@ -1,0 +1,422 @@
+---
+title: Geolocation
+description: How Casa de Historias maps indigenous legends to their geographic origins in Sierra de Zongolica
+icon: map-location-dot
+---
+
+Casa de Historias integrates geographic information to connect stories with their physical places of origin. This spatial organization helps preserve the relationship between legends and the landscape of Sierra de Zongolica.
+
+## Location in Story Model
+
+Each story can optionally include geographic coordinates:
+
+```kotlin Story.kt:3
+data class Story(
+    val id: String,
+    val titleEs: String,
+    val titleNahuatl: String,
+    val contentEs: String,
+    val contentNahuatl: String,
+    val audioUrl: String?,
+    val imageUrl: String?,
+    val narratorName: String,
+    val community: String,
+    val latitude: Double? = null,   // Optional geographic coordinate
+    val longitude: Double? = null,  // Optional geographic coordinate
+    val authorId: String = "",
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = 0L
+)
+```
+
+<Info>
+Latitude and longitude are nullable, making geolocation optional. This accommodates stories that may be associated with broad regions rather than specific locations.
+</Info>
+
+## MapLibre Integration
+
+The app uses MapLibre GL for mapping functionality, an open-source alternative to Google Maps:
+
+### Dependencies
+
+```kotlin
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.annotations.MarkerOptions
+```
+
+<Note>
+MapLibre is chosen for its open-source nature and freedom from proprietary API restrictions, making it ideal for community-focused cultural preservation projects.
+</Note>
+
+## Interactive Map Screen
+
+The `StoryMapScreen` displays all geotagged stories on an interactive map:
+
+### Map Initialization
+
+```kotlin StoryMapScreen.kt:96
+AndroidView(
+    modifier = Modifier
+        .fillMaxSize()
+        .padding(padding),
+    factory = { context ->
+        MapLibre.getInstance(context)
+        val mapView = MapView(context)
+        mapView.onCreate(null)
+        mapView.getMapAsync { map ->
+            map.setStyle(
+                Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")
+            ) {
+                // Set camera to Sierra de Zongolica
+                map.cameraPosition = CameraPosition.Builder()
+                    .target(LatLng(zongolicaLat, zongolicaLng))
+                    .zoom(9.0)
+                    .build()
+
+                // Add markers for stories
+                storiesWithLocation.forEach { story ->
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(LatLng(story.latitude!!, story.longitude!!))
+                            .title(story.titleEs)
+                            .snippet("Narrado por ${story.narratorName}")
+                    )
+                }
+            }
+        }
+        mapView
+    }
+)
+```
+
+### Sierra de Zongolica Default Location
+
+The map centers on the Sierra de Zongolica region:
+
+```kotlin StoryMapScreen.kt:32
+// Sierra de Zongolica center
+val zongolicaLat = 18.6667
+val zongolicaLng = -97.0000
+```
+
+<Tip>
+This default location ensures users immediately see the relevant geographic region when opening the map, even before any stories are loaded.
+</Tip>
+
+## Filtering Stories by Location
+
+Only stories with valid coordinates are displayed on the map:
+
+```kotlin StoryMapScreen.kt:63
+val storiesWithLocation = stories.filter { 
+    it.latitude != null && it.longitude != null 
+}
+```
+
+### Empty State Handling
+
+```kotlin StoryMapScreen.kt:68
+if (storiesWithLocation.isEmpty()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("🗺️", fontSize = 64.sp)
+            Text(
+                "Sin ubicaciones",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = LunaLlena
+            )
+            Text(
+                "Aún no hay historias con\nubicación en el mapa",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSecundario,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+```
+
+## Interactive Marker Selection
+
+Users can tap markers to view story previews:
+
+```kotlin StoryMapScreen.kt:124
+map.setOnMarkerClickListener { marker ->
+    selectedStory = storiesWithLocation.find { it.titleEs == marker.title }
+    if (selectedStory != null) {
+        showSheet = true
+    }
+    true
+}
+```
+
+### Bottom Sheet Preview
+
+Tapping a marker opens a modal bottom sheet with story details:
+
+```kotlin StoryMapScreen.kt:140
+if (showSheet && selectedStory != null) {
+    ModalBottomSheet(
+        onDismissRequest = { showSheet = false },
+        containerColor = FondoTarjeta,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = AguaSagrada) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = selectedStory!!.titleEs,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = LunaLlena
+            )
+            
+            if (selectedStory!!.titleNahuatl.isNotBlank()) {
+                Text(
+                    text = selectedStory!!.titleNahuatl,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = AguaSagrada
+                )
+            }
+            
+            Text(
+                text = selectedStory!!.contentEs,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSecundario,
+                maxLines = 3,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+            
+            Button(
+                onClick = { 
+                    showSheet = false
+                    onStoryClick(selectedStory!!.id) 
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AguaSagrada, 
+                    contentColor = NocheProfunda
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Leer leyenda completa", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+```
+
+## Location Selection in Story Creation
+
+When adding or editing stories, users can select a location by tapping the map:
+
+### Location Picker Implementation
+
+```kotlin AddStoryScreen.kt:190
+Box(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(200.dp)
+) {
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            MapLibre.getInstance(context)
+            val mapView = MapView(context)
+            mapView.onCreate(null)
+            mapView.getMapAsync { map ->
+                map.setStyle(Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")) {
+                    // Set camera to Sierra de Zongolica initially
+                    map.cameraPosition = CameraPosition.Builder()
+                        .target(LatLng(18.6667, -97.0000))
+                        .zoom(8.0)
+                        .build()
+
+                    map.addOnMapClickListener { point ->
+                        map.clear()
+                        map.addMarker(
+                            MarkerOptions()
+                                .position(point)
+                                .title("Ubicación de la historia")
+                        )
+                        selectedLat = point.latitude
+                        selectedLng = point.longitude
+                        true
+                    }
+                }
+            }
+            mapView
+        },
+        update = { mapView ->
+            mapView.onResume()
+        }
+    )
+}
+```
+
+<Steps>
+  <Step title="Map Display">
+    The map shows the Sierra de Zongolica region at moderate zoom level
+  </Step>
+
+  <Step title="User Interaction">
+    User taps any location on the map
+  </Step>
+
+  <Step title="Clear Previous Markers">
+    Any existing marker is cleared using `map.clear()`
+  </Step>
+
+  <Step title="Place New Marker">
+    A new marker is placed at the tapped location
+  </Step>
+
+  <Step title="Store Coordinates">
+    The latitude and longitude are stored in state variables
+  </Step>
+</Steps>
+
+### Edit Mode Location Picker
+
+When editing an existing story, the map shows the current location:
+
+```kotlin EditStoryScreen.kt:196
+val lat = selectedLat ?: 18.6667
+val lng = selectedLng ?: -97.0000
+map.cameraPosition = CameraPosition.Builder()
+    .target(LatLng(lat, lng))
+    .zoom(if (selectedLat != null) 12.0 else 8.0)
+    .build()
+
+if (selectedLat != null && selectedLng != null) {
+    map.addMarker(
+        MarkerOptions()
+            .position(LatLng(selectedLat!!, selectedLng!!))
+            .title("Ubicación actual")
+    )
+}
+```
+
+<Note>
+The zoom level is higher (12.0) when showing an existing location, providing more detail. When no location exists, it zooms out (8.0) to show the broader region.
+</Note>
+
+## Community-Based Organization
+
+Stories also include a text-based community field:
+
+```kotlin Story.kt:12
+val community: String,
+```
+
+This complements geographic coordinates by providing cultural context:
+
+```kotlin AddStoryScreen.kt:177
+CustomOutlinedTextField(
+    value = community,
+    onValueChange = { community = it },
+    label = "Comunidad de origen",
+    icon = Icons.Outlined.LocationOn
+)
+```
+
+### Repository Support for Community Filtering
+
+```kotlin StoryRepository.kt:31
+suspend fun getStoriesByCommunity(community: String): List<Story> {
+    return firestoreRepository.getStoriesByCommunity(community).map { it.toDomainModel() }
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Geographic Coordinates" icon="map-pin">
+    Precise latitude/longitude for mapping specific locations like sacred sites or landmarks
+  </Card>
+  <Card title="Community Name" icon="people-group">
+    Cultural identifier that may represent a broader area or multiple nearby villages
+  </Card>
+</CardGroup>
+
+## Cultural and Preservation Significance
+
+### Place-Based Knowledge
+
+<Info>
+Indigenous stories are often deeply connected to specific places. A legend about a sacred mountain, a particular river, or a cave carries different meaning when you know exactly where that place is.
+</Info>
+
+### Benefits of Geolocation
+
+<Steps>
+  <Step title="Cultural Tourism">
+    Visitors can discover stories associated with places they're visiting in the Sierra de Zongolica region.
+  </Step>
+
+  <Step title="Educational Context">
+    Students and researchers can understand the geographic distribution of different story themes and cultural practices.
+  </Step>
+
+  <Step title="Community Identity">
+    Each village's unique stories are preserved and associated with their place of origin.
+  </Step>
+
+  <Step title="Landscape Memory">
+    The relationship between land and culture is maintained, helping communities remember why certain places are significant.
+  </Step>
+</Steps>
+
+## Technical Considerations
+
+### Open Street Map Tiles
+
+The app uses OpenFreeMap tiles:
+
+```kotlin
+"https://tiles.openfreemap.org/styles/liberty"
+```
+
+<Tip>
+OpenFreeMap provides free, open-source map tiles without usage restrictions, making it sustainable for community projects without API costs.
+</Tip>
+
+### Offline Considerations
+
+<Warning>
+Map tiles require internet connectivity. In areas with limited connectivity (common in Sierra de Zongolica), consider implementing offline map caching or provide fallback community-based browsing.
+</Warning>
+
+## Future Enhancements
+
+Potential geolocation features:
+
+<CardGroup cols={2}>
+  <Card title="GPS Auto-Location" icon="location-crosshairs">
+    Use device GPS to automatically suggest the current location when adding stories on-site.
+  </Card>
+  <Card title="Offline Maps" icon="map">
+    Pre-download map tiles for the Sierra de Zongolica region for offline use.
+  </Card>
+  <Card title="Geographic Clustering" icon="layer-group">
+    Group nearby stories into clusters on the map for better visualization.
+  </Card>
+  <Card title="Route Planning" icon="route">
+    Create cultural tourism routes connecting multiple story locations.
+  </Card>
+</CardGroup>
